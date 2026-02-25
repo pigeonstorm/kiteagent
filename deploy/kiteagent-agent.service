@@ -1,0 +1,17 @@
+[Unit]
+Description=KiteAgent Weather Daemon
+After=network.target kiteagent-server.service
+Requires=kiteagent-server.service
+
+[Service]
+Type=simple
+User=kiteagent
+Group=kiteagent
+WorkingDirectory=/opt/kiteagent
+ExecStart=/opt/kiteagent/kiteagent-agent /opt/kiteagent/config.toml
+Restart=always
+RestartSec=5
+Environment=RUST_LOG=info
+
+[Install]
+WantedBy=multi-user.target

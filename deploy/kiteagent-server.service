@@ -1,0 +1,16 @@
+[Unit]
+Description=KiteAgent Push Server
+After=network.target
+
+[Service]
+Type=simple
+User=kiteagent
+Group=kiteagent
+WorkingDirectory=/opt/kiteagent
+ExecStart=/opt/kiteagent/kiteagent-server
+Restart=always
+RestartSec=5
+Environment=RUST_LOG=info
+
+[Install]
+WantedBy=multi-user.target

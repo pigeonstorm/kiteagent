@@ -1,0 +1,33 @@
+[package]
+name = "kiteagent-server"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "kiteagent_server"
+path = "src/lib.rs"
+
+[[bin]]
+name = "kiteagent-server"
+path = "src/main.rs"
+
+[dependencies]
+kiteagent-shared = { path = "../shared" }
+tokio = { version = "1", features = ["full"] }
+axum = "0.7"
+tower-http = { version = "0.5", features = ["fs", "cors"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", features = ["serde"] }
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+web-push = { version = "0.9", features = ["hyper-client"] }
+reqwest = { version = "0.12", features = ["json"] }
+openssl = "0.10"
+base64 = "0.22"
+
+[dev-dependencies]
+axum-test = "14"
+tower = "0.5"
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }

@@ -1,0 +1,19 @@
+# Rust build output
+/target/
+
+# Runtime data
+*.db
+*.db-shm
+*.db-wal
+logs/
+
+# VAPID private key — keep out of version control
+vapid_keys.json
+
+# macOS
+.DS_Store
+
+# Editor
+.idea/
+.vscode/
+*.swp
