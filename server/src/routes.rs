@@ -74,6 +74,7 @@ pub fn router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/", get(serve_index))
         .route("/sw.js", get(serve_sw))
+        .route("/manifest.json", get(serve_manifest))
         .route("/subscribe", post(subscribe))
         .route("/push", post(push))
         .route("/status", get(status))
@@ -115,6 +116,13 @@ async fn serve_sw() -> impl IntoResponse {
     (
         [(header::CONTENT_TYPE, "application/javascript")],
         include_str!("../static/sw.js"),
+    )
+}
+
+async fn serve_manifest() -> impl IntoResponse {
+    (
+        [(header::CONTENT_TYPE, "application/manifest+json")],
+        include_str!("../static/manifest.json"),
     )
 }
 
