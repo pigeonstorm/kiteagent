@@ -100,7 +100,7 @@
   <article>
     <header>
       48-Hour Forecast
-      <button id="pull-btn" class="outline" style="float:right;padding:0.2rem 0.7rem;font-size:0.75rem;margin:0">Pull now</button>
+      <button id="pull-btn" class="outline" style="float:right;padding:0.2rem 0.7rem;font-size:0.75rem;margin:0;display:none">Pull now</button>
     </header>
     <div id="forecast-info"><span aria-busy="true">Loading…</span></div>
   </article>
@@ -366,7 +366,10 @@
       }
     }
 
-    // ── Pull button ───────────────────────────────────────────────────────────
+    // ── Pull button (admin only) ───────────────────────────────────────────────
+
+    const isAdmin = new URLSearchParams(location.search).get('user')?.toLowerCase() === 'victor';
+    if (isAdmin) document.getElementById('pull-btn').style.display = '';
 
     document.getElementById('pull-btn').addEventListener('click', async () => {
       const btn = document.getElementById('pull-btn');
@@ -375,7 +378,7 @@
       btn.disabled = true;
       btn.textContent = 'Pulling…';
       try {
-        const res = await fetch('/pull', { method: 'POST' });
+        const res = await fetch('/pull?user=victor', { method: 'POST' });
         const d = await res.json();
         if (d.ok) {
           await loadForecast();

@@ -4,14 +4,26 @@ A Rust-based kitesurf weather agent that monitors conditions at Windy Point, Lak
 
 ## Quick Start
 
+The easiest way to run both binaries together is via the Rake tasks:
+
 ```bash
-# Build both binaries
+# Dev mode — builds on every change, server in background, agent in foreground
+rake dev
+
+# Release mode — builds optimised binaries once, then runs both
+rake run
+
+# Or start each process individually (dev builds)
+rake server   # Axum HTTP server only
+rake agent    # Weather agent only
+```
+
+Manual invocation without Rake:
+
+```bash
 cargo build --release
 
-# 1. Start the server (handles Web Push subscriptions + /push endpoint)
 ./target/release/kiteagent-server &
-
-# 2. Start the agent (fetches forecast hourly, evaluates, sends notifications)
 ./target/release/kiteagent-agent config.toml
 ```
 
@@ -39,6 +51,54 @@ Edit `config.toml` to set:
 ## Deploy (Graviton 3 / ARM64)
 
 See [deploy/README.md](deploy/README.md) for cross-compilation, systemd units, and Nginx TLS.
+
+## Inspecting the Database
+
+The app uses SQLite. The database file is `kiteagent.db` in the project root (configurable via `config.toml` → `storage.db_path`).
+
+### Option 1 — `sqlite3` CLI (quickest)
+
+```bash
+sqlite3 kiteagent.db
+```
+
+Useful commands once inside the shell:
+
+```sql
+.tables                -- list all tables
+.mode column
+.headers on
+
+SELECT * FROM forecasts          ORDER BY id DESC LIMIT 5;
+SELECT * FROM analysis_runs      ORDER BY id DESC LIMIT 5;
+SELECT * FROM errors             ORDER BY id DESC LIMIT 20;
+SELECT * FROM notifications_sent ORDER BY id DESC LIMIT 10;
+SELECT * FROM push_subscriptions;
+SELECT * FROM profile;
+SELECT * FROM spots;
+SELECT * FROM gear_items;
+SELECT * FROM gear_wind_ranges;
+```
+
+Pretty-print a JSON column:
+
+```bash
+sqlite3 kiteagent.db "SELECT json_pretty(raw_json) FROM forecasts ORDER BY id DESC LIMIT 1;"
+```
+
+Type `.quit` to exit.
+
+### Option 2 — DB Browser for SQLite (GUI)
+
+```bash
+brew install --cask db-browser-for-sqlite
+```
+
+Open the app, then **File → Open Database → `kiteagent.db`**.
+
+### Option 3 — VS Code / Cursor extension
+
+Install the **SQLite Viewer** extension (by Florian Klampfer) and click on `kiteagent.db` directly in the file explorer.
 
 ## Tests
 

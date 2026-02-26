@@ -1,10 +1,11 @@
 use axum::{
-    extract::{Request, State},
+    extract::{Query, Request, State},
     http::{header, StatusCode},
     response::IntoResponse,
     routing::{get, post},
     Json, Router,
 };
+use std::collections::HashMap;
 use kiteagent_shared::{Config, Db};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -228,7 +229,14 @@ async fn push(State(state): State<Arc<AppState>>, req: Request) -> impl IntoResp
 
 const OPEN_METEO_URL: &str = "https://api.open-meteo.com/v1/forecast";
 
-async fn pull_forecast(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+async fn pull_forecast(
+    Query(params): Query<HashMap<String, String>>,
+    State(state): State<Arc<AppState>>,
+) -> impl IntoResponse {
+    let is_admin = params.get("user").map(|u| u.trim().to_lowercase() == "victor").unwrap_or(false);
+    if !is_admin {
+        return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error": "forbidden"}))).into_response();
+    }
     let cfg = &state.config;
     let url = format!(
         "{}?latitude={}&longitude={}&hourly=windspeed_10m,winddirection_10m,windgusts_10m,temperature_2m,weathercode&wind_speed_unit=kn&forecast_days=2&timezone=America/Chicago",
