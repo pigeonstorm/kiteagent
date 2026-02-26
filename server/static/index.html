@@ -84,7 +84,10 @@
         <strong>Push Alerts</strong>
         <p style="margin:0.15rem 0 0;color:var(--pico-muted-color);font-size:0.8rem">Get notified when the forecast is good for wind sports</p>
       </div>
-      <button id="enable" class="contrast" style="white-space:nowrap;flex-shrink:0;padding:0.45rem 1.1rem">Subscribe</button>
+      <div style="display:flex;gap:0.5rem;flex-shrink:0">
+        <button id="enable" class="contrast" style="white-space:nowrap;padding:0.45rem 1.1rem">Subscribe</button>
+        <button id="test-notif" class="outline" style="white-space:nowrap;padding:0.45rem 1.1rem;display:none">Test</button>
+      </div>
     </div>
     <p id="status" style="margin:0.6rem 0 0;font-size:0.8rem"></p>
   </article>
@@ -117,6 +120,7 @@
     }
 
     const btn = document.getElementById('enable');
+    const testBtn = document.getElementById('test-notif');
     const statusEl = document.getElementById('status');
 
     function pushUnsupportedReason() {
@@ -132,6 +136,13 @@
       return null;
     }
 
+    function markSubscribed() {
+      btn.textContent = '✓ Subscribed';
+      btn.disabled = true;
+      testBtn.style.display = '';
+      statusEl.innerHTML = '<small style="color:var(--pico-muted-color)">You will receive alerts when conditions are good.</small>';
+    }
+
     // Show a hint immediately if push won't work in this context.
     const unsupported = pushUnsupportedReason();
     if (unsupported) {
@@ -145,6 +156,13 @@
         statusEl.innerHTML = `<small style="color:var(--pico-muted-color)">📲 On iPhone: tap the Share icon → <strong>Add to Home Screen</strong>, then open KiteAgent from your home screen to enable notifications.</small>`;
         btn.disabled = true;
       }
+
+      // Restore subscribed state if already subscribed.
+      navigator.serviceWorker.register('/sw.js').then(async reg => {
+        await navigator.serviceWorker.ready;
+        const existing = await reg.pushManager.getSubscription();
+        if (existing) markSubscribed();
+      }).catch(() => {});
     }
 
     btn.addEventListener('click', async () => {
@@ -158,6 +176,7 @@
         const permission = await Notification.requestPermission();
         if (permission !== 'granted') {
           statusEl.innerHTML = '<mark>Notification permission denied. Enable it in your browser settings.</mark>';
+          btn.disabled = false;
           return;
         }
         const sub = await reg.pushManager.subscribe({
@@ -170,8 +189,7 @@
           body: JSON.stringify(sub.toJSON())
         });
         if (!res.ok) throw new Error(`Server error ${res.status}`);
-        btn.textContent = '✓ Subscribed';
-        statusEl.innerHTML = '<small style="color:var(--pico-muted-color)">You will receive alerts when conditions are good.</small>';
+        markSubscribed();
         loadStatus();
       } catch (e) {
         statusEl.innerHTML = `<mark>${e.message}</mark>`;
@@ -179,6 +197,32 @@
         btn.disabled = false;
       } finally {
         btn.removeAttribute('aria-busy');
+      }
+    });
+
+    testBtn.addEventListener('click', async () => {
+      testBtn.setAttribute('aria-busy', 'true');
+      testBtn.disabled = true;
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        if (!sub) {
+          statusEl.innerHTML = '<mark>No active subscription found. Try subscribing again.</mark>';
+          return;
+        }
+        const res = await fetch('/test-push', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(sub.toJSON())
+        });
+        if (!res.ok) throw new Error(`Server error ${res.status}`);
+        statusEl.innerHTML = '<small style="color:var(--pico-muted-color)">Test notification sent!</small>';
+      } catch (e) {
+        statusEl.innerHTML = `<mark>${e.message}</mark>`;
+        console.error(e);
+      } finally {
+        testBtn.removeAttribute('aria-busy');
+        testBtn.disabled = false;
       }
     });
 

@@ -77,6 +77,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/manifest.json", get(serve_manifest))
         .route("/subscribe", post(subscribe))
         .route("/push", post(push))
+        .route("/test-push", post(test_push))
         .route("/status", get(status))
         .route("/forecast", get(forecast))
         .route("/pull", post(pull_forecast))
@@ -138,7 +139,37 @@ async fn subscribe(
         tracing::error!(%e, "failed to save subscription");
         return (StatusCode::INTERNAL_SERVER_ERROR, "failed to save subscription").into_response();
     }
+
+    let welcome = serde_json::json!({
+        "title": "KiteAgent — You're subscribed! 🪁",
+        "body": "You'll receive alerts when wind conditions are good for kiting at Windy Point, Lake Travis.",
+    })
+    .to_string();
+    if let Err(e) =
+        send_push(&payload.endpoint, &payload.keys.p256dh, &payload.keys.auth, &welcome, &state.vapid).await
+    {
+        tracing::warn!(%e, "failed to send welcome notification");
+    }
+
     (StatusCode::OK, "OK").into_response()
+}
+
+async fn test_push(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<SubscribePayload>,
+) -> impl IntoResponse {
+    let body = serde_json::json!({
+        "title": "KiteAgent — Test Notification 🪁",
+        "body": "Your notification system is working correctly!",
+    })
+    .to_string();
+    match send_push(&payload.endpoint, &payload.keys.p256dh, &payload.keys.auth, &body, &state.vapid).await {
+        Ok(()) => (StatusCode::OK, "OK").into_response(),
+        Err(e) => {
+            tracing::error!(%e, "test push failed");
+            (StatusCode::INTERNAL_SERVER_ERROR, "push failed").into_response()
+        }
+    }
 }
 
 async fn push(State(state): State<Arc<AppState>>, req: Request) -> impl IntoResponse {
