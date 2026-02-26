@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use kiteagent_shared::{Config, Db};
 use serde::Deserialize;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 const OPEN_METEO_URL: &str = "https://api.open-meteo.com/v1/forecast";
 
@@ -70,6 +70,9 @@ pub fn parse_open_meteo(resp: OpenMeteoResponse) -> Forecast {
     }
 }
 
+const MAX_ATTEMPTS: u32 = 3;
+const RETRY_DELAYS_SECS: [u64; 2] = [5, 15];
+
 pub async fn fetch_forecast(
     cfg: &Config,
     db: &Db,
@@ -83,45 +86,74 @@ pub async fn fetch_forecast(
     );
 
     let start = std::time::Instant::now();
-    let resp = client
-        .get(&url)
-        .send()
-        .await
-        .context("Open-Meteo HTTP request")?;
+    let mut last_err: Option<String> = None;
 
-    if !resp.status().is_success() {
+    for attempt in 1..=MAX_ATTEMPTS {
+        if attempt > 1 {
+            let delay = RETRY_DELAYS_SECS[(attempt - 2) as usize];
+            warn!(attempt, delay_secs = delay, "retrying Open-Meteo fetch");
+            tokio::time::sleep(tokio::time::Duration::from_secs(delay)).await;
+        }
+
+        let resp = match client.get(&url).send().await {
+            Ok(r) => r,
+            Err(e) => {
+                let msg = format!("Open-Meteo HTTP request failed: {}", e);
+                warn!(attempt, error = %msg, "transient request error");
+                last_err = Some(msg);
+                continue;
+            }
+        };
+
         let status = resp.status();
+
+        if status.is_success() {
+            let raw_json = resp.text().await.context("read Open-Meteo response body")?;
+            let json: OpenMeteoResponse =
+                serde_json::from_str(&raw_json).context("parse Open-Meteo JSON")?;
+            let forecast = parse_open_meteo(json);
+            let valid_from = forecast.valid_from().unwrap_or("");
+            let valid_to = forecast.valid_to().unwrap_or("");
+            let fetched_at = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string();
+
+            let forecast_id = db.insert_forecast(
+                &fetched_at,
+                &forecast.source,
+                valid_from,
+                valid_to,
+                &raw_json,
+                true,
+            )?;
+
+            info!(
+                source = %forecast.source,
+                fetched_at = %fetched_at,
+                hours_count = forecast.slots.len(),
+                duration_ms = start.elapsed().as_millis(),
+                attempt,
+                "forecast fetched"
+            );
+
+            return Ok((forecast, forecast_id));
+        }
+
         let body = resp.text().await.unwrap_or_default();
         let err_msg = format!("Open-Meteo returned {}: {}", status, body);
-        error!(source = "open-meteo", error = %err_msg, "fetch failed");
+
+        if status.is_server_error() {
+            warn!(attempt, error = %err_msg, "transient server error, will retry");
+            last_err = Some(err_msg);
+            continue;
+        }
+
+        // Non-retriable error (4xx etc.) — log and bail immediately.
+        error!(source = "open-meteo", error = %err_msg, "fetch failed (non-retriable)");
         db.insert_error("weather_fetch", &err_msg, None)?;
         anyhow::bail!("{}", err_msg);
     }
 
-    let raw_json = resp.text().await.context("read Open-Meteo response body")?;
-    let json: OpenMeteoResponse =
-        serde_json::from_str(&raw_json).context("parse Open-Meteo JSON")?;
-    let forecast = parse_open_meteo(json);
-    let valid_from = forecast.valid_from().unwrap_or("");
-    let valid_to = forecast.valid_to().unwrap_or("");
-    let fetched_at = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string();
-
-    let forecast_id = db.insert_forecast(
-        &fetched_at,
-        &forecast.source,
-        valid_from,
-        valid_to,
-        &raw_json,
-        true,
-    )?;
-
-    info!(
-        source = %forecast.source,
-        fetched_at = %fetched_at,
-        hours_count = forecast.slots.len(),
-        duration_ms = start.elapsed().as_millis(),
-        "forecast fetched"
-    );
-
-    Ok((forecast, forecast_id))
+    let err_msg = last_err.unwrap_or_else(|| "unknown error".to_string());
+    error!(source = "open-meteo", error = %err_msg, "fetch failed after all retries");
+    db.insert_error("weather_fetch", &err_msg, None)?;
+    anyhow::bail!("{}", err_msg);
 }

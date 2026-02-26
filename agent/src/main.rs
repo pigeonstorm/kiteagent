@@ -96,7 +96,11 @@ async fn main() -> Result<()> {
 
     let db = Arc::new(Db::open(&cfg.storage.db_path)?);
     let cfg = Arc::new(cfg);
-    let client = Arc::new(reqwest::Client::new());
+    let client = Arc::new(
+        reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(30))
+            .build()?,
+    );
 
     let scheduler = JobScheduler::new().await?;
     let cfg1 = Arc::clone(&cfg);
@@ -104,7 +108,7 @@ async fn main() -> Result<()> {
     let client1 = Arc::clone(&client);
     scheduler
         .add(
-            Job::new_async("0 0 * * * *", move |_uuid, _lock| {
+            Job::new_async("0 0 */6 * * *", move |_uuid, _lock| {
                 let cfg = Arc::clone(&cfg1);
                 let db = Arc::clone(&db1);
                 let client = Arc::clone(&client1);
