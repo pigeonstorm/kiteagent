@@ -355,7 +355,7 @@
             <td>${bearing(h.dir_deg)}</td>
             <td>${h.temp_c != null ? Math.round(h.temp_c) + '°C' : '—'}</td>
             <td>${wmoIcon(h.wmo)}</td>
-            ${h.rideable ? '<td><img src="/logo.png" style="height:1.2em;vertical-align:left"></td>' : (h.wind_kn >= 8 ? '<td><img src="/logo.png" style="height:1.2em;vertical-align:middle;opacity:0.3"></td>' : '<td></td>')}
+            ${h.rideable ? '<td><img src="/logo.png" style="height:1.2em;vertical-align:left"></td>' : (h.wind_kn >= 8 ? '<td><img src="/logo.png" style="height:1.2em;vertical-align:middle;opacity:0.9"></td>' : '<td></td>')}
           </tr>`;
         }
 
