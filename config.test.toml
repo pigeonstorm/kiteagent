@@ -1,0 +1,46 @@
+[location]
+name = "Windy Point, Lake Travis, TX"
+lat = 30.4597
+lon = -97.9653
+
+[user]
+name = "Victor"
+weight_kg = 84
+
+[gear]
+available = ["kitefoil", "twintip", "windfoil"]
+
+[gear.kites]
+sizes = [5, 7, 9, 12, 14]
+
+[gear.windfoil_sails]
+sizes = [3.5, 4.5, 5.5]
+
+[notification]
+method = "webpush"
+server_url = "http://localhost:8080"
+push_secret = "change-this-random-secret"
+
+[server]
+bind = "0.0.0.0:9090"
+vapid_subject = "mailto:you@example.com"
+
+[schedule]
+fetch_interval_min = 60
+morning_digest_hour = 7
+opportunity_lookahead_hours = 4
+notification_cooldown_hours = 4
+max_notifications_per_day = 3
+
+[thresholds]
+min_wind_kn = 8.0
+max_wind_kn = 40.0
+max_gust_ratio = 1.6
+min_session_hours = 2
+bad_directions_deg = [[0, 90], [315, 360]]
+daylight_only = true   # never flag windows outside sunrise–sunset
+
+[storage]
+db_path = "kiteagent.db"
+log_dir = "logs"
+log_days = 30

@@ -105,9 +105,16 @@ fn load_index_html() -> String {
     include_str!("../static/index.html").to_string()
 }
 
-async fn serve_index(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+async fn serve_index(
+    Query(params): Query<HashMap<String, String>>,
+    State(state): State<Arc<AppState>>,
+) -> impl IntoResponse {
+    let user = params.get("user").map(|s| s.trim().to_lowercase()).unwrap_or_default();
+    let is_admin = !user.is_empty() && user == state.config.user.name.trim().to_lowercase();
     let public_key = state.vapid.public_key_base64url().unwrap_or_default();
-    let html = load_index_html().replace("__VAPID_PUBLIC_KEY__", &public_key);
+    let html = load_index_html()
+        .replace("__VAPID_PUBLIC_KEY__", &public_key)
+        .replace("__IS_ADMIN__", if is_admin { "true" } else { "false" });
     let headers = [
         (header::CONTENT_TYPE, "text/html"),
         (header::CACHE_CONTROL, "no-cache, no-store, must-revalidate"),

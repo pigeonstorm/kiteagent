@@ -1,0 +1,163 @@
+From e39a5714a34761472977ba2ec64b68b4554b94c9 Mon Sep 17 00:00:00 2001
+From: Victor Benarbia <victor@serpapi.com>
+Date: Wed, 25 Feb 2026 09:18:14 -0600
+Subject: [PATCH] Fix Web Push on mobile: PWA manifest, iOS detection, better
+ errors
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- Add /manifest.json route and static file for PWA installability
+- Add apple-mobile-web-app-* meta tags for iOS home screen install
+- Detect iOS non-standalone context and show "Add to Home Screen" hint
+- Detect HTTP (non-secure) context and disable subscribe with message
+- Check PushManager/serviceWorker support before attempting subscribe
+- Show permission-denied and server-error messages explicitly
+- Subscribe button changes to "✓ Subscribed" on success
+
+Co-authored-by: Cursor <cursoragent@cursor.com>
+---
+ server/src/routes.rs        |  8 ++++++
+ server/static/index.html    | 55 ++++++++++++++++++++++++++++++++++---
+ server/static/manifest.json | 16 +++++++++++
+ 3 files changed, 75 insertions(+), 4 deletions(-)
+ create mode 100644 server/static/manifest.json
+
+diff --git a/server/src/routes.rs b/server/src/routes.rs
+index 3770352..f64fd7d 100644
+--- a/server/src/routes.rs
++++ b/server/src/routes.rs
+@@ -74,6 +74,7 @@ pub fn router(state: Arc<AppState>) -> Router {
+     Router::new()
+         .route("/", get(serve_index))
+         .route("/sw.js", get(serve_sw))
++        .route("/manifest.json", get(serve_manifest))
+         .route("/subscribe", post(subscribe))
+         .route("/push", post(push))
+         .route("/status", get(status))
+@@ -118,6 +119,13 @@ async fn serve_sw() -> impl IntoResponse {
+     )
+ }
+ 
++async fn serve_manifest() -> impl IntoResponse {
++    (
++        [(header::CONTENT_TYPE, "application/manifest+json")],
++        include_str!("../static/manifest.json"),
++    )
++}
++
+ async fn subscribe(
+     State(state): State<Arc<AppState>>,
+     Json(payload): Json<SubscribePayload>,
+diff --git a/server/static/index.html b/server/static/index.html
+index 4d8bd2b..1606447 100644
+--- a/server/static/index.html
++++ b/server/static/index.html
+@@ -4,6 +4,10 @@
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>KiteAgent — Windy Point, Lake Travis</title>
++  <meta name="apple-mobile-web-app-capable" content="yes">
++  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
++  <meta name="apple-mobile-web-app-title" content="KiteAgent">
++  <link rel="manifest" href="/manifest.json">
+   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+   <style>
+     :root { --pico-background-color: #0d0d0d; }
+@@ -112,11 +116,50 @@
+       return outputArray;
+     }
+ 
+-    document.getElementById('enable').addEventListener('click', async () => {
+-      const statusEl = document.getElementById('status');
++    const btn = document.getElementById('enable');
++    const statusEl = document.getElementById('status');
++
++    function pushUnsupportedReason() {
++      if (location.protocol !== 'https:' && location.hostname !== 'localhost')
++        return 'Push notifications require HTTPS. Open this page over a secure connection.';
++      if (!('serviceWorker' in navigator))
++        return 'Your browser does not support service workers.';
++      if (!('PushManager' in window)) {
++        const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
++        if (isIOS) return 'iOS requires this site to be installed as an app first — tap the Share icon, then "Add to Home Screen", then open KiteAgent from your home screen.';
++        return 'Your browser does not support Web Push notifications. Try Chrome or Firefox.';
++      }
++      return null;
++    }
++
++    // Show a hint immediately if push won't work in this context.
++    const unsupported = pushUnsupportedReason();
++    if (unsupported) {
++      btn.disabled = true;
++      statusEl.innerHTML = `<small style="color:var(--pico-muted-color)">${unsupported}</small>`;
++    } else {
++      // On iOS, show a proactive install hint even before the user taps.
++      const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
++      const isStandalone = window.navigator.standalone === true;
++      if (isIOS && !isStandalone) {
++        statusEl.innerHTML = `<small style="color:var(--pico-muted-color)">📲 On iPhone: tap the Share icon → <strong>Add to Home Screen</strong>, then open KiteAgent from your home screen to enable notifications.</small>`;
++        btn.disabled = true;
++      }
++    }
++
++    btn.addEventListener('click', async () => {
++      const reason = pushUnsupportedReason();
++      if (reason) { statusEl.innerHTML = `<mark>${reason}</mark>`; return; }
++      btn.setAttribute('aria-busy', 'true');
++      btn.disabled = true;
+       try {
+         const reg = await navigator.serviceWorker.register('/sw.js');
+         await navigator.serviceWorker.ready;
++        const permission = await Notification.requestPermission();
++        if (permission !== 'granted') {
++          statusEl.innerHTML = '<mark>Notification permission denied. Enable it in your browser settings.</mark>';
++          return;
++        }
+         const sub = await reg.pushManager.subscribe({
+           userVisibleOnly: true,
+           applicationServerKey: await urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+@@ -126,12 +169,16 @@
+           headers: { 'Content-Type': 'application/json' },
+           body: JSON.stringify(sub.toJSON())
+         });
+-        if (!res.ok) throw new Error('Subscribe failed');
+-        statusEl.textContent = '✓ Notifications enabled.';
++        if (!res.ok) throw new Error(`Server error ${res.status}`);
++        btn.textContent = '✓ Subscribed';
++        statusEl.innerHTML = '<small style="color:var(--pico-muted-color)">You will receive alerts when conditions are good.</small>';
+         loadStatus();
+       } catch (e) {
+         statusEl.innerHTML = `<mark>${e.message}</mark>`;
+         console.error(e);
++        btn.disabled = false;
++      } finally {
++        btn.removeAttribute('aria-busy');
+       }
+     });
+ 
+diff --git a/server/static/manifest.json b/server/static/manifest.json
+new file mode 100644
+index 0000000..b30f734
+--- /dev/null
++++ b/server/static/manifest.json
+@@ -0,0 +1,16 @@
++{
++  "name": "KiteAgent",
++  "short_name": "KiteAgent",
++  "description": "Kitesurf forecast alerts for Windy Point, Lake Travis",
++  "start_url": "/",
++  "display": "standalone",
++  "background_color": "#0d0d0d",
++  "theme_color": "#0d0d0d",
++  "icons": [
++    {
++      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪁</text></svg>",
++      "sizes": "any",
++      "type": "image/svg+xml"
++    }
++  ]
++}
+-- 
+2.50.1 (Apple Git-155)
+

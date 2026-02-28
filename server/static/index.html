@@ -116,6 +116,7 @@
 
   <script>
     const VAPID_PUBLIC_KEY = '__VAPID_PUBLIC_KEY__';
+    // __IS_ADMIN__ is replaced server-side based on ?user= query param
 
     async function urlBase64ToUint8Array(base64String) {
       const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -354,14 +355,14 @@
             <td>${bearing(h.dir_deg)}</td>
             <td>${h.temp_c != null ? Math.round(h.temp_c) + '°C' : '—'}</td>
             <td>${wmoIcon(h.wmo)}</td>
-            ${h.rideable ? '<td>🪁</td>' : '<td></td>'}
+            ${h.rideable ? '<td><img src="/logo.png" style="height:1.2em;vertical-align:left"></td>' : (h.wind_kn >= 8 ? '<td><img src="/logo.png" style="height:1.2em;vertical-align:middle;opacity:0.3"></td>' : '<td></td>')}
           </tr>`;
         }
 
         const table = `
           <table id="forecast-table">
             <thead><tr>
-              <th>Time</th><th>Wind / Gusts</th><th>Dir</th><th>Temp</th><th>Cond</th><th></th>
+              <th>Time</th><th>Wind / Gusts</th><th>Dir</th><th>Temp</th><th>Cond</th><th>Gear</th>
             </tr></thead>
             <tbody>${rows}</tbody>
           </table>`;
@@ -375,7 +376,8 @@
 
     // ── Pull button (admin only) ───────────────────────────────────────────────
 
-    const isAdmin = new URLSearchParams(location.search).get('user')?.toLowerCase() === 'victor';
+    const isAdmin = __IS_ADMIN__;
+    const adminToken = new URLSearchParams(location.search).get('token') ?? '';
     if (isAdmin) document.getElementById('pull-btn').style.display = '';
 
     document.getElementById('pull-btn').addEventListener('click', async () => {
@@ -385,7 +387,8 @@
       btn.disabled = true;
       btn.textContent = 'Pulling…';
       try {
-        const res = await fetch('/pull?user=victor', { method: 'POST' });
+        const pullUrl = adminToken ? `/pull?token=${encodeURIComponent(adminToken)}` : '/pull';
+        const res = await fetch(pullUrl, { method: 'POST' });
         const d = await res.json();
         if (d.ok) {
           await loadForecast();
