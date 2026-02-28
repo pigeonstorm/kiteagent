@@ -29,6 +29,7 @@ async fn main() -> Result<()> {
         push_secret: cfg.notification.push_secret.clone(),
         config: cfg.clone(),
         http: reqwest::Client::new(),
+        web_push: web_push::WebPushClient::new().expect("WebPushClient::new is infallible"),
     });
 
     let listener = tokio::net::TcpListener::bind(&cfg.server.bind).await?;

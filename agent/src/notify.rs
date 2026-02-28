@@ -98,24 +98,49 @@ pub async fn send_morning_digest(
         return Ok(false);
     }
 
-    let title = "Morning kite forecast";
-    let body = if windows.is_empty() {
-        "No kite windows forecast today.".to_string()
-    } else {
-        let mut lines = Vec::new();
-        for w in windows {
-            let gear = recommend(w, cfg);
-            lines.push(format!(
-                "{} – {}: {:.0}kn {}\n{}",
-                format_time_short(&w.start),
-                format_time_short(&w.end),
-                w.avg_kn,
-                deg_to_cardinal(w.dir_deg),
-                gear
-            ));
+    // Window timestamps are in America/Chicago local time (fetched with timezone=America/Chicago).
+    // At 7:30 AM CST (13:30 UTC) the UTC-6 date always matches the local date.
+    let cst_now = chrono::Utc::now() - chrono::Duration::hours(6);
+    let today = cst_now.format("%Y-%m-%d").to_string();
+    let tomorrow = (cst_now + chrono::Duration::days(1)).format("%Y-%m-%d").to_string();
+
+    let windows_today: Vec<&RideableWindow> = windows
+        .iter()
+        .filter(|w| w.start.starts_with(&today))
+        .collect();
+    let windows_tomorrow: Vec<&RideableWindow> = windows
+        .iter()
+        .filter(|w| w.start.starts_with(&tomorrow))
+        .collect();
+
+    let format_day = |day_windows: &[&RideableWindow]| -> String {
+        if day_windows.is_empty() {
+            "  Not windy.".to_string()
+        } else {
+            day_windows
+                .iter()
+                .map(|w| {
+                    let gear = recommend(*w, cfg);
+                    format!(
+                        "  {} – {}: {:.0}kn {}\n  {}",
+                        format_time_short(&w.start),
+                        format_time_short(&w.end),
+                        w.avg_kn,
+                        deg_to_cardinal(w.dir_deg),
+                        gear
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join("\n\n")
         }
-        lines.join("\n\n")
     };
+
+    let title = "Morning kite forecast";
+    let body = format!(
+        "Today:\n{}\n\nTomorrow:\n{}",
+        format_day(&windows_today),
+        format_day(&windows_tomorrow),
+    );
 
     send_push(cfg, title, &body, client).await?;
 

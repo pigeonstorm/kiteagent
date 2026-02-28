@@ -23,7 +23,7 @@ push_secret = "change-this-random-secret"
 
 [server]
 bind = "0.0.0.0:8080"
-vapid_subject = "mailto:you@example.com"
+vapid_subject = "mailto:root@pigeonstorm.com"
 
 [schedule]
 fetch_interval_min = 60

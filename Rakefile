@@ -30,12 +30,13 @@ ensure
   Process.kill("TERM", pid) rescue nil
 end
 
-desc "Dev mode: start both via cargo run (server bg, agent fg)"
+desc "Dev mode: auto-reload both on source changes (cargo-watch)"
 task :dev do
-  pid = spawn("cargo run -p kiteagent-server")
-  at_exit { Process.kill("TERM", pid) rescue nil }
-  sleep 4
-  sh "cargo run -p kiteagent-agent -- #{CONFIG}"
+  server_pid = spawn("cargo watch -w server/src -w shared/src -w server/static -x 'run -p kiteagent-server'")
+  at_exit { Process.kill("TERM", server_pid) rescue nil }
+  sleep 6
+  system %(open "cursor://vscode.simple-browser/show?url=http://localhost:8080?user=victor")
+  sh "cargo watch -w agent/src -w shared/src -x 'run -p kiteagent-agent -- #{CONFIG}'"
 ensure
-  Process.kill("TERM", pid) rescue nil
+  Process.kill("TERM", server_pid) rescue nil
 end

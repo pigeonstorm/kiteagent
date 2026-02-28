@@ -126,7 +126,7 @@ async fn main() -> Result<()> {
     let client2 = Arc::clone(&client);
     scheduler
         .add(
-            Job::new_async("0 0 7 * * *", move |_uuid, _lock| {
+            Job::new_async("0 30 13 * * *", move |_uuid, _lock| {
                 let cfg = Arc::clone(&cfg2);
                 let db = Arc::clone(&db2);
                 let client = Arc::clone(&client2);
@@ -140,7 +140,7 @@ async fn main() -> Result<()> {
         .await?;
 
     scheduler.start().await?;
-    info!("scheduler started (hourly fetch, 7am digest)");
+    info!("scheduler started (6-hourly fetch, 7:30am CST digest)");
 
     loop {
         tokio::time::sleep(tokio::time::Duration::from_secs(3600)).await;
