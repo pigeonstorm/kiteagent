@@ -10,9 +10,16 @@
   <link rel="manifest" href="/manifest.json">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
   <style>
-    :root { --pico-background-color: #0d0d0d; }
+    :root { 
+      --pico-background-color: #051a2c; 
+      --pico-primary: #1a9fb5;
+      --pico-primary-background: rgba(26, 159, 181, 0.1);
+      --pico-primary-inverse: #051a2c;
+      --pico-muted-border-color: rgba(26, 159, 181, 0.2);
+    }
     body { max-width: 40rem; margin: 0 auto; padding: 2rem 1rem; }
-    h1 { margin-bottom: 0.15rem; }
+    h1 { margin-bottom: 0.15rem; display: flex; align-items: center; gap: 0.75rem; }
+    h1 img { height: 2.5rem; width: auto; }
     .subtitle { color: var(--pico-muted-color); font-size: 0.875rem; margin-bottom: 2rem; }
     #status { font-size: 0.875rem; }
 
@@ -56,16 +63,16 @@
       border-left: 2px solid rgba(148, 163, 184, 0.35);
     }
     #forecast-table tr.windy td:first-child {
-      border-left: 2px solid #22c55e;
+      border-left: 2px solid #2db8d4;
     }
     #forecast-table tr.windy {
-      background: rgba(34, 197, 94, 0.10);
+      background: rgba(45, 184, 212, 0.08);
     }
     #forecast-table tr.rideable td:first-child {
-      border-left: 2px solid #16a34a;
+      border-left: 2px solid #0d7a94;
     }
     #forecast-table tr.rideable {
-      background: rgba(34, 197, 94, 0.22);
+      background: rgba(13, 122, 148, 0.18);
     }
     .wind-val { font-weight: 600; }
     .gust-val { color: var(--pico-muted-color); font-size: 0.75rem; }
@@ -75,7 +82,7 @@
   </style>
 </head>
 <body>
-  <h1>KiteAgent 🪁</h1>
+  <h1><img src="/logo.png" alt="KiteAgent Logo">KiteAgent</h1>
   <p class="subtitle">Windy Point, Lake Travis — Kite Forecast Alerts</p>
 
   <article>

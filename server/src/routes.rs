@@ -19,6 +19,7 @@ pub struct AppState {
     pub push_secret: String,
     pub config: Config,
     pub http: reqwest::Client,
+    pub web_push: web_push::WebPushClient,
 }
 
 #[derive(Deserialize)]
@@ -76,6 +77,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/", get(serve_index))
         .route("/sw.js", get(serve_sw))
         .route("/manifest.json", get(serve_manifest))
+        .route("/logo.png", get(serve_logo))
         .route("/subscribe", post(subscribe))
         .route("/push", post(push))
         .route("/test-push", post(test_push))
@@ -128,6 +130,27 @@ async fn serve_manifest() -> impl IntoResponse {
     )
 }
 
+async fn serve_logo() -> impl IntoResponse {
+    let manifest_dir = env!("CARGO_MANIFEST_DIR");
+    let candidates = [
+        format!("{}/static/logo.png", manifest_dir),
+        "server/static/logo.png".to_string(),
+        "static/logo.png".to_string(),
+    ];
+    
+    for path in &candidates {
+        if let Ok(data) = std::fs::read(path) {
+            return axum::response::Response::builder()
+                .header(header::CONTENT_TYPE, "image/png")
+                .body(axum::body::Body::from(data))
+                .unwrap()
+                .into_response();
+        }
+    }
+    
+    (StatusCode::NOT_FOUND, "logo not found").into_response()
+}
+
 async fn subscribe(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<SubscribePayload>,
@@ -147,7 +170,7 @@ async fn subscribe(
     })
     .to_string();
     if let Err(e) =
-        send_push(&payload.endpoint, &payload.keys.p256dh, &payload.keys.auth, &welcome, &state.vapid).await
+        send_push(&payload.endpoint, &payload.keys.p256dh, &payload.keys.auth, &welcome, &state.vapid, &state.web_push).await
     {
         tracing::warn!(%e, "failed to send welcome notification");
     }
@@ -164,7 +187,7 @@ async fn test_push(
         "body": "Your notification system is working correctly!",
     })
     .to_string();
-    match send_push(&payload.endpoint, &payload.keys.p256dh, &payload.keys.auth, &body, &state.vapid).await {
+    match send_push(&payload.endpoint, &payload.keys.p256dh, &payload.keys.auth, &body, &state.vapid, &state.web_push).await {
         Ok(()) => (StatusCode::OK, "OK").into_response(),
         Err(e) => {
             tracing::error!(%e, "test push failed");
@@ -207,7 +230,7 @@ async fn push(State(state): State<Arc<AppState>>, req: Request) -> impl IntoResp
 
     let mut stale = Vec::new();
     for sub in &subs {
-        match send_push(&sub.endpoint, &sub.p256dh, &sub.auth, &push_str, &state.vapid).await {
+        match send_push(&sub.endpoint, &sub.p256dh, &sub.auth, &push_str, &state.vapid, &state.web_push).await {
             Ok(()) => {}
             Err(web_push::WebPushError::EndpointNotValid) => {
                 tracing::warn!(endpoint = %sub.endpoint, "stale subscription, removing");
