@@ -3,6 +3,7 @@ require "rake"
 BIN_DIR = "target/release"
 AGENT_BIN = "#{BIN_DIR}/kiteagent-agent"
 SERVER_BIN = "#{BIN_DIR}/kiteagent-server"
+HRRR_BIN  = "#{BIN_DIR}/hrrr-server"
 CONFIG = "config.toml"
 
 desc "Build both binaries (release)"
@@ -39,4 +40,14 @@ task :dev do
   sh "cargo watch -w agent/src -w shared/src -x 'run -p kiteagent-agent -- #{CONFIG}'"
 ensure
   Process.kill("TERM", server_pid) rescue nil
+end
+
+desc "Start the HRRR API server (foreground, dev mode)"
+task :hrrr do
+  sh "cargo run -p hrrr-server"
+end
+
+desc "Dev mode for HRRR server with auto-reload"
+task "hrrr:dev" do
+  sh "cargo watch -w hrrr-server/src -w hrrr-server/static -x 'run -p hrrr-server'"
 end

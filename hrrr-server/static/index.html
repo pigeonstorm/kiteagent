@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HRRR API — hrrr.pigeonstorm.com</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+  <style>
+    :root {
+      --pico-background-color: #051a2c;
+      --pico-primary: #1a9fb5;
+      --pico-primary-background: rgba(26, 159, 181, 0.1);
+      --pico-primary-inverse: #051a2c;
+      --pico-muted-border-color: rgba(26, 159, 181, 0.2);
+    }
+    body { max-width: 48rem; margin: 0 auto; padding: 2rem 1rem; }
+    h1 { margin-bottom: 0.15rem; }
+    .subtitle { color: var(--pico-muted-color); font-size: 0.875rem; margin-bottom: 2rem; }
+
+    .info-row {
+      display: flex; justify-content: space-between;
+      border-bottom: 1px solid var(--pico-muted-border-color);
+      padding: 0.35rem 0; font-size: 0.875rem;
+    }
+    .info-row:last-child { border-bottom: none; }
+    .info-row span:last-child { color: var(--pico-muted-color); font-size: 0.8rem; }
+
+    .gauge {
+      height: 0.5rem; border-radius: 4px;
+      background: var(--pico-muted-border-color);
+      margin-top: 0.3rem; overflow: hidden;
+    }
+    .gauge-fill {
+      height: 100%; border-radius: 4px;
+      background: var(--pico-primary);
+      transition: width 0.4s ease;
+    }
+
+    .sparkline { display: flex; align-items: flex-end; gap: 2px; height: 2.5rem; margin-top: 0.5rem; }
+    .sparkline .bar {
+      flex: 1; min-width: 4px; border-radius: 2px 2px 0 0;
+      background: var(--pico-primary);
+      transition: height 0.3s ease;
+    }
+
+    .error-item {
+      font-size: 0.8rem; padding: 0.3rem 0;
+      border-bottom: 1px solid var(--pico-muted-border-color);
+    }
+    .error-item:last-child { border-bottom: none; }
+    .error-kind { color: var(--pico-del-color); font-weight: 600; }
+    .error-ts { color: var(--pico-muted-color); font-size: 0.72rem; }
+
+    .caller-row { display: flex; justify-content: space-between; font-size: 0.8rem; padding: 0.2rem 0; }
+
+    small.version { display: block; text-align: center; color: var(--pico-muted-color); font-size: 0.7rem; margin-top: 2rem; }
+
+    .code-block { position: relative; }
+    .copy-btn {
+      position: absolute; top: -0.6rem; right: 0.4rem;
+      background: var(--pico-muted-border-color); border: none;
+      color: var(--pico-color); font-size: 0.7rem;
+      padding: 0.2rem 0.5rem; border-radius: 4px; cursor: pointer;
+      opacity: 0.9; transition: opacity 0.2s;
+    }
+    .copy-btn:hover { opacity: 1; }
+  </style>
+</head>
+<body>
+  <h1>HRRR API</h1>
+  <p class="subtitle">hrrr.pigeonstorm.com — Direct HRRR forecast data from NOAA NOMADS</p>
+
+  <div id="admin-bar" style="display:none; margin-bottom:1.5rem;">
+    <button id="pull-btn" class="outline" style="width:100%">Force NOMADS Fetch</button>
+    <div id="pull-result" style="font-size:0.8rem; margin-top:0.4rem;"></div>
+  </div>
+
+  <article>
+    <header>Service Status</header>
+    <div id="status-info"><span aria-busy="true">Loading...</span></div>
+  </article>
+
+  <article>
+    <header>Cache</header>
+    <div id="cache-info"><span aria-busy="true">Loading...</span></div>
+  </article>
+
+  <article>
+    <header>Traffic (24h)</header>
+    <div id="traffic-info"><span aria-busy="true">Loading...</span></div>
+  </article>
+
+  <article>
+    <header>Top Callers (24h)</header>
+    <div id="callers-info"><span aria-busy="true">Loading...</span></div>
+  </article>
+
+  <article>
+    <header>Recent Errors</header>
+    <div id="errors-info"><span aria-busy="true">Loading...</span></div>
+  </article>
+
+  <article>
+    <header>API Usage</header>
+    <div style="font-size:0.85rem">
+      <p><strong>Endpoint:</strong> <code>GET /v1/forecast</code></p>
+      <p>Open-Meteo compatible. Example:</p>
+      <div class="code-block">
+        <pre style="font-size:0.75rem;overflow-x:auto"><code id="curl-example">curl "https://hrrr.pigeonstorm.com/v1/forecast?latitude=30.46&amp;longitude=-97.97&amp;hourly=windspeed_10m,winddirection_10m,windgusts_10m,temperature_2m,weathercode&amp;wind_speed_unit=kn&amp;forecast_days=2"</code></pre>
+        <button class="copy-btn" id="copy-curl-btn" title="Copy to clipboard">Copy</button>
+      </div>
+    </div>
+  </article>
+
+  <small class="version">hrrr-server v0.1 · HRRR data from NOAA NOMADS</small>
+
+  <script>
+    function reltime(iso) {
+      const diff = Date.now() - new Date(iso).getTime();
+      const mins = Math.round(diff / 60000);
+      if (mins < 2) return 'just now';
+      if (mins < 60) return `${mins}m ago`;
+      const hrs = Math.round(mins / 60);
+      if (hrs < 24) return `${hrs}h ago`;
+      return `${Math.round(hrs / 24)}d ago`;
+    }
+
+    function infoRow(label, value) {
+      return `<div class="info-row"><span>${label}</span><span>${value}</span></div>`;
+    }
+
+    async function loadMetrics() {
+      try {
+        const d = await fetch('/metrics.json').then(r => r.json());
+
+        // Status
+        const statusEl = document.getElementById('status-info');
+        let html = '';
+        if (d.last_fetch) {
+          html += infoRow('Last NOMADS fetch', reltime(d.last_fetch.at));
+          html += infoRow('Valid range', `${d.last_fetch.valid_from} — ${d.last_fetch.valid_to}`);
+        } else {
+          html += infoRow('Last NOMADS fetch', 'No data yet');
+        }
+        html += infoRow('Errors (24h)', d.errors_last_24h > 0
+          ? `<span style="color:var(--pico-del-color)">${d.errors_last_24h}</span>`
+          : '0');
+        html += infoRow('Rate-limited (24h)', String(d.rate_limited_last_24h));
+        statusEl.innerHTML = html;
+
+        // Cache
+        const cacheEl = document.getElementById('cache-info');
+        const pct = d.cache.hit_rate_pct;
+        cacheEl.innerHTML =
+          infoRow('Entries', String(d.cache.entries)) +
+          infoRow('Hit rate (24h)', `${pct.toFixed(1)}%`) +
+          `<div class="gauge"><div class="gauge-fill" style="width:${pct}%"></div></div>`;
+
+        // Traffic
+        const trafficEl = document.getElementById('traffic-info');
+        const maxH = Math.max(...d.requests.by_hour, 1);
+        const bars = d.requests.by_hour.map((c, i) =>
+          `<div class="bar" style="height:${(c / maxH) * 100}%" title="${i}:00 — ${c} req"></div>`
+        ).join('');
+        trafficEl.innerHTML =
+          infoRow('Requests (24h)', String(d.requests.last_24h)) +
+          infoRow('Requests (1h)', String(d.requests.last_1h)) +
+          `<div class="sparkline">${bars}</div>`;
+
+        // Top callers
+        const callersEl = document.getElementById('callers-info');
+        if (d.top_callers.length === 0) {
+          callersEl.innerHTML = '<span style="color:var(--pico-muted-color);font-size:0.85rem">No requests yet</span>';
+        } else {
+          callersEl.innerHTML = d.top_callers.map(c =>
+            `<div class="caller-row"><span><code>${c.ip}</code></span><span>${c.requests_24h} req</span></div>`
+          ).join('');
+        }
+
+        // Errors
+        const errorsEl = document.getElementById('errors-info');
+        if (d.recent_errors.length === 0) {
+          errorsEl.innerHTML = '<span style="color:var(--pico-muted-color);font-size:0.85rem">No errors</span>';
+        } else {
+          errorsEl.innerHTML = d.recent_errors.map(e =>
+            `<div class="error-item"><span class="error-kind">${e.kind}</span> <span class="error-ts">${reltime(e.ts)}</span><br>${e.detail}</div>`
+          ).join('');
+        }
+      } catch (e) {
+        console.error('Failed to load metrics:', e);
+      }
+    }
+
+    document.getElementById('copy-curl-btn').addEventListener('click', async () => {
+      const btn = document.getElementById('copy-curl-btn');
+      const text = document.getElementById('curl-example').textContent;
+      try {
+        await navigator.clipboard.writeText(text);
+        btn.textContent = 'Copied!';
+      } catch {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        btn.textContent = 'Copied!';
+      }
+      setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
+    });
+
+    loadMetrics();
+    setInterval(loadMetrics, 30_000);
+
+    // ── Admin: force NOMADS fetch ──────────────────────────────────────
+    const isAdmin = __IS_ADMIN__;
+    const userParam = new URLSearchParams(location.search).get('user') || '';
+
+    if (isAdmin) {
+      document.getElementById('admin-bar').style.display = '';
+    }
+
+    document.getElementById('pull-btn').addEventListener('click', async () => {
+      const btn = document.getElementById('pull-btn');
+      const out = document.getElementById('pull-result');
+      btn.setAttribute('aria-busy', 'true');
+      btn.disabled = true;
+      btn.textContent = 'Fetching from NOMADS…';
+      out.textContent = '';
+      try {
+        const res = await fetch(`/pull?user=${encodeURIComponent(userParam)}`, { method: 'POST' });
+        const d = await res.json();
+        if (d.ok) {
+          out.innerHTML = `<span style="color:var(--pico-primary)">Fetched ${d.hours} hours (${d.run}) at ${d.fetched_at}</span>`;
+          loadMetrics();
+        } else {
+          out.innerHTML = `<span style="color:var(--pico-del-color)">Failed: ${d.error}</span>`;
+        }
+      } catch (e) {
+        out.innerHTML = `<span style="color:var(--pico-del-color)">Error: ${e.message}</span>`;
+      } finally {
+        btn.removeAttribute('aria-busy');
+        btn.disabled = false;
+        btn.textContent = 'Force NOMADS Fetch';
+      }
+    });
+  </script>
+</body>
+</html>

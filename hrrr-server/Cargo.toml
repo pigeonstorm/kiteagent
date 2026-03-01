@@ -1,0 +1,32 @@
+[package]
+name = "hrrr-server"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "hrrr_server"
+path = "src/lib.rs"
+
+[[bin]]
+name = "hrrr-server"
+path = "src/main.rs"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+axum = "0.7"
+tower = "0.5"
+tower-http = { version = "0.5", features = ["cors"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", features = ["serde"] }
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+reqwest = { version = "0.12", features = ["json"] }
+rusqlite = { version = "0.31", features = ["bundled"] }
+grib = { version = "0.13", default-features = false }
+
+[dev-dependencies]
+axum-test = "14"
+tower = "0.5"
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }

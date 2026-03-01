@@ -3,7 +3,10 @@ use kiteagent_shared::{Config, Db};
 use serde::Deserialize;
 use tracing::{error, info, warn};
 
-const OPEN_METEO_URL: &str = "https://api.open-meteo.com/v1/forecast";
+#[cfg(debug_assertions)]
+const OPEN_METEO_URL: &str = "http://localhost:8081/v1/forecast";
+#[cfg(not(debug_assertions))]
+const OPEN_METEO_URL: &str = "https://hrrr.pigeonstorm.com/v1/forecast";
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct OpenMeteoResponse {

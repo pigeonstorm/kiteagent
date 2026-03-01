@@ -257,7 +257,10 @@ async fn push(State(state): State<Arc<AppState>>, req: Request) -> impl IntoResp
 
 // ── /pull ─────────────────────────────────────────────────────────────────────
 
-const OPEN_METEO_URL: &str = "https://api.open-meteo.com/v1/forecast";
+#[cfg(debug_assertions)]
+const OPEN_METEO_URL: &str = "http://localhost:8081/v1/forecast";
+#[cfg(not(debug_assertions))]
+const OPEN_METEO_URL: &str = "https://hrrr.pigeonstorm.com/v1/forecast";
 
 async fn pull_forecast(
     Query(params): Query<HashMap<String, String>>,
