@@ -4,9 +4,9 @@ use serde::Deserialize;
 use tracing::{error, info, warn};
 
 #[cfg(debug_assertions)]
-const OPEN_METEO_URL: &str = "http://localhost:8081/v1/forecast";
+const OPEN_METEO_URL: &str = "http://localhost:8081/forecast";
 #[cfg(not(debug_assertions))]
-const OPEN_METEO_URL: &str = "https://hrrr.pigeonstorm.com/v1/forecast";
+const OPEN_METEO_URL: &str = "https://hrrr.pigeonstorm.com/forecast";
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct OpenMeteoResponse {

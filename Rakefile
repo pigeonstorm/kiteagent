@@ -4,6 +4,7 @@ BIN_DIR = "target/release"
 AGENT_BIN = "#{BIN_DIR}/kiteagent-agent"
 SERVER_BIN = "#{BIN_DIR}/kiteagent-server"
 HRRR_BIN  = "#{BIN_DIR}/hrrr-server"
+LIVE_BIN  = "#{BIN_DIR}/live-server"
 CONFIG = "config.toml"
 
 desc "Build both binaries (release)"
@@ -50,4 +51,14 @@ end
 desc "Dev mode for HRRR server with auto-reload"
 task "hrrr:dev" do
   sh "cargo watch -w hrrr-server/src -w hrrr-server/static -x 'run -p hrrr-server'"
+end
+
+desc "Start the live weather scraper/API server (foreground, dev mode)"
+task :live do
+  sh "cargo run -p live-server"
+end
+
+desc "Dev mode for live-server with auto-reload"
+task "live:dev" do
+  sh "cargo watch -w live-server/src -w live-server/static -x 'run -p live-server'"
 end

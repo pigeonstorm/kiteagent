@@ -19,7 +19,7 @@ pub fn router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/", get(serve_dashboard))
         .route("/metrics.json", get(metrics))
-        .route("/v1/forecast", get(forecast))
+        .route("/forecast", get(forecast))
         .route("/pull", post(pull))
         .layer(CorsLayer::permissive())
         .with_state(state)
@@ -32,7 +32,7 @@ fn is_admin(params: &HashMap<String, String>) -> bool {
         .unwrap_or(false)
 }
 
-// ── GET /v1/forecast ────────────────────────────────────────────────────
+// ── GET /forecast ──────────────────────────────────────────────────────
 
 #[derive(Deserialize)]
 #[allow(dead_code)]
@@ -75,7 +75,7 @@ async fn forecast(
 
     if let Ok(Some(cached)) = state.db.get_cached_forecast(lat, lon, run_date, run_cycle) {
         let duration = start.elapsed().as_millis() as u64;
-        let _ = state.db.log_request(&ip, "/v1/forecast", Some(lat), Some(lon), true, 200, duration);
+        let _ = state.db.log_request(&ip, "/forecast", Some(lat), Some(lon), true, 200, duration);
         info!(lat, lon, run_date, run_cycle, cache = "hit", duration_ms = duration, "forecast served");
         return (
             StatusCode::OK,
@@ -101,7 +101,7 @@ async fn forecast(
             }
 
             let duration = start.elapsed().as_millis() as u64;
-            let _ = state.db.log_request(&ip, "/v1/forecast", Some(lat), Some(lon), false, 200, duration);
+            let _ = state.db.log_request(&ip, "/forecast", Some(lat), Some(lon), false, 200, duration);
             info!(lat, lon, run_date = %run.date, run_cycle = run.cycle, hours = slots.len(), cache = "miss", duration_ms = duration, "forecast fetched from NOMADS");
 
             (
@@ -112,7 +112,7 @@ async fn forecast(
         }
         Err(e) => {
             let duration = start.elapsed().as_millis() as u64;
-            let _ = state.db.log_request(&ip, "/v1/forecast", Some(lat), Some(lon), false, 502, duration);
+            let _ = state.db.log_request(&ip, "/forecast", Some(lat), Some(lon), false, 502, duration);
             let _ = state.db.log_error("nomads_fetch", &e.to_string());
             error!(error = %e, "HRRR fetch failed");
 

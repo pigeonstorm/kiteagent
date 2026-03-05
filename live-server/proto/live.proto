@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package live;
+
+service LiveWeather {
+    // Returns the most recent scraped weather reading
+    rpc GetLatest (GetLatestRequest) returns (WeatherReading);
+    // Returns the last N readings, most recent first
+    rpc GetHistory (GetHistoryRequest) returns (GetHistoryResponse);
+}
+
+message GetLatestRequest {}
+
+message GetHistoryRequest {
+    int32 limit = 1;
+}
+
+message GetHistoryResponse {
+    repeated WeatherReading readings = 1;
+}
+
+message WeatherReading {
+    int64 id             = 1;
+    string scraped_at    = 2;   // RFC-3339 UTC
+    string station_time  = 3;   // local time string from station page
+
+    // Wind
+    double wind_speed_mph      = 4;
+    string wind_direction      = 5;   // compass abbrev, e.g. "SSE"
+    int32  wind_direction_deg  = 6;
+    double wind_avg_mph        = 7;
+    double wind_hi_mph         = 8;
+    int32  wind_hi_dir_deg     = 9;
+    double wind_rms_mph        = 10;
+    double wind_vector_avg_mph = 11;
+    int32  wind_vector_dir_deg = 12;
+
+    // Atmosphere
+    double temperature_f       = 13;
+    double humidity_pct        = 14;
+    double barometer_inhg      = 15;
+    double barometer_trend     = 16;  // inHg over 3 hours
+    double rain_in             = 17;
+    double rain_rate_in_hr     = 18;
+    double wind_chill_f        = 19;
+    double heat_index_f        = 20;
+    double dewpoint_f          = 21;
+}

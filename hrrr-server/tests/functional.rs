@@ -143,9 +143,9 @@ fn db_cache_upsert_overwrites_same_key() {
 fn db_request_log_and_metrics() {
     let db = Db::open_in_memory().unwrap();
 
-    db.log_request("1.2.3.4", "/v1/forecast", Some(30.46), Some(-97.97), true, 200, 5).unwrap();
-    db.log_request("1.2.3.4", "/v1/forecast", Some(30.46), Some(-97.97), false, 200, 1200).unwrap();
-    db.log_request("5.6.7.8", "/v1/forecast", Some(40.0), Some(-74.0), false, 200, 800).unwrap();
+    db.log_request("1.2.3.4", "/forecast", Some(30.46), Some(-97.97), true, 200, 5).unwrap();
+    db.log_request("1.2.3.4", "/forecast", Some(30.46), Some(-97.97), false, 200, 1200).unwrap();
+    db.log_request("5.6.7.8", "/forecast", Some(40.0), Some(-74.0), false, 200, 800).unwrap();
 
     assert_eq!(db.requests_last_24h().unwrap(), 3);
     assert_eq!(db.requests_last_1h().unwrap(), 3);
@@ -178,7 +178,7 @@ fn db_rate_limit_count() {
     let db = Db::open_in_memory().unwrap();
 
     for i in 0..5 {
-        db.log_request(&format!("10.0.0.{i}"), "/v1/forecast", None, None, false, 429, 0).unwrap();
+        db.log_request(&format!("10.0.0.{i}"), "/forecast", None, None, false, 429, 0).unwrap();
     }
 
     assert_eq!(db.rate_limited_last_24h().unwrap(), 5);
@@ -205,7 +205,7 @@ async fn api_dashboard_returns_html() {
 #[tokio::test]
 async fn api_metrics_returns_json_structure() {
     let state = test_state();
-    state.db.log_request("1.2.3.4", "/v1/forecast", Some(30.46), Some(-97.97), true, 200, 3).unwrap();
+    state.db.log_request("1.2.3.4", "/forecast", Some(30.46), Some(-97.97), true, 200, 3).unwrap();
     state.db.log_error("nomads_fetch", "test error").unwrap();
 
     let app = test_app(state);
@@ -250,7 +250,7 @@ async fn api_forecast_cache_hit() {
     let server = axum_test::TestServer::new(app.into_make_service_with_connect_info::<std::net::SocketAddr>()).unwrap();
 
     let resp = server
-        .get("/v1/forecast")
+        .get("/forecast")
         .add_query_param("latitude", "30.46")
         .add_query_param("longitude", "-97.97")
         .add_query_param("wind_speed_unit", "kn")
@@ -273,7 +273,7 @@ async fn api_forecast_missing_params_returns_error() {
     let app = test_app(state);
     let server = axum_test::TestServer::new(app.into_make_service_with_connect_info::<std::net::SocketAddr>()).unwrap();
 
-    let resp = server.get("/v1/forecast").await;
+    let resp = server.get("/forecast").await;
     resp.assert_status(axum::http::StatusCode::BAD_REQUEST);
 }
 
@@ -283,14 +283,14 @@ async fn api_rate_limiter_blocks_after_threshold() {
 
     // Pre-fill request_log with 30 entries from 127.0.0.1 (the test client IP)
     for _ in 0..30 {
-        state.db.log_request("127.0.0.1", "/v1/forecast", None, None, false, 200, 1).unwrap();
+        state.db.log_request("127.0.0.1", "/forecast", None, None, false, 200, 1).unwrap();
     }
 
     let app = test_app(state.clone());
     let server = axum_test::TestServer::new(app.into_make_service_with_connect_info::<std::net::SocketAddr>()).unwrap();
 
     let resp = server
-        .get("/v1/forecast")
+        .get("/forecast")
         .add_query_param("latitude", "30.46")
         .add_query_param("longitude", "-97.97")
         .await;
@@ -306,7 +306,7 @@ async fn api_rate_limiter_allows_under_threshold() {
 
     // Only 5 requests -- well under the 30 limit
     for _ in 0..5 {
-        state.db.log_request("127.0.0.1", "/v1/forecast", None, None, false, 200, 1).unwrap();
+        state.db.log_request("127.0.0.1", "/forecast", None, None, false, 200, 1).unwrap();
     }
 
     // Seed cache so the request succeeds without hitting NOMADS
@@ -322,7 +322,7 @@ async fn api_rate_limiter_allows_under_threshold() {
     let server = axum_test::TestServer::new(app.into_make_service_with_connect_info::<std::net::SocketAddr>()).unwrap();
 
     let resp = server
-        .get("/v1/forecast")
+        .get("/forecast")
         .add_query_param("latitude", "30.46")
         .add_query_param("longitude", "-97.97")
         .await;

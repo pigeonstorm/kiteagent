@@ -27,6 +27,16 @@ cargo build --release
 ./target/release/kiteagent-agent config.toml
 ```
 
+## Crates
+
+| Crate | Binary | Intent |
+|---|---|---|
+| `shared` | — | Internal library shared by `agent` and `server`. Holds config types (parsed from `config.toml`), the SQLite `Db` wrapper, and schema migrations. |
+| `agent` | `kiteagent-agent` | Weather daemon. Fetches Open-Meteo HRRR forecasts on a cron schedule, evaluates rideable wind windows against the rider's gear inventory, and POSTs Web Push notifications to `kiteagent-server`. |
+| `server` | `kiteagent-server` | Axum HTTP server. Manages Web Push subscriptions, generates VAPID keys on first run, and exposes `/subscribe`, `/push`, `/status`, and the PWA subscription page. |
+| `hrrr-server` | `hrrr-server` | Standalone forecast cache. Downloads NOAA HRRR GRIB2 files, parses them with the `grib` crate, stores results in SQLite, and serves an HTTP API plus a simple dashboard for raw forecast inspection. |
+| `live-server` | `live-server` | Real-time conditions server. Scrapes live wind and atmosphere readings from the ARL:UT Lake Travis station, stores them in SQLite, and exposes both a REST API (Axum) and a gRPC service (tonic/prost, defined in `proto/live.proto`) for querying the latest and historical readings. |
+
 ## Components
 
 - **kiteagent-server** — Axum HTTP server with `/subscribe`, `/push`, `/status`, and subscription page. Generates VAPID keys on first run.

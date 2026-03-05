@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lake Travis Live Weather</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #0d1117;
+      --surface: #161b22;
+      --border:  #30363d;
+      --accent:  #58a6ff;
+      --green:   #3fb950;
+      --yellow:  #d29922;
+      --red:     #f85149;
+      --muted:   #8b949e;
+      --text:    #e6edf3;
+      --radius:  10px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      min-height: 100vh;
+      padding: 1.5rem;
+    }
+
+    header {
+      display: flex;
+      align-items: baseline;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+    header h1 { font-size: 1.4rem; font-weight: 600; }
+    header .subtitle { color: var(--muted); font-size: 0.85rem; }
+    #station-time { color: var(--accent); font-size: 0.85rem; margin-left: auto; }
+
+    /* Wind hero */
+    .wind-hero {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 2rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+    .wind-speed {
+      font-size: 4rem;
+      font-weight: 700;
+      line-height: 1;
+      color: var(--accent);
+    }
+    .wind-speed span { font-size: 1.2rem; font-weight: 400; color: var(--muted); margin-left: 4px; }
+    .wind-dir-badge {
+      font-size: 1.8rem;
+      font-weight: 600;
+      background: #1f2937;
+      border-radius: 8px;
+      padding: 0.3rem 0.8rem;
+    }
+
+    /* Wind compass */
+    .compass-wrap { position: relative; width: 80px; height: 80px; }
+    .compass-ring {
+      width: 80px; height: 80px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      position: relative;
+    }
+    .compass-arrow {
+      position: absolute;
+      top: 50%; left: 50%;
+      width: 3px; height: 32px;
+      background: var(--accent);
+      transform-origin: bottom center;
+      transform: translateX(-50%) translateY(-100%) rotate(0deg);
+      border-radius: 2px 2px 0 0;
+      transition: transform 0.6s ease;
+    }
+    .compass-dot {
+      position: absolute;
+      top: 50%; left: 50%;
+      width: 8px; height: 8px;
+      background: var(--text);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+    }
+    .compass-label {
+      position: absolute;
+      font-size: 9px;
+      color: var(--muted);
+    }
+    .compass-label.n { top: 2px; left: 50%; transform: translateX(-50%); }
+    .compass-label.s { bottom: 2px; left: 50%; transform: translateX(-50%); }
+    .compass-label.e { right: 2px; top: 50%; transform: translateY(-50%); }
+    .compass-label.w { left: 2px; top: 50%; transform: translateY(-50%); }
+
+    .wind-stats {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.5rem 1.5rem;
+    }
+    .wind-stat { display: flex; flex-direction: column; }
+    .wind-stat .label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .wind-stat .value { font-size: 1.1rem; font-weight: 600; }
+
+    /* Grid of metric cards */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 1rem;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem 1.25rem;
+    }
+    .card .label {
+      font-size: 0.72rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.35rem;
+    }
+    .card .value {
+      font-size: 1.6rem;
+      font-weight: 700;
+    }
+    .card .unit { font-size: 0.85rem; font-weight: 400; color: var(--muted); }
+
+    footer {
+      margin-top: 2rem;
+      color: var(--muted);
+      font-size: 0.75rem;
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); display: inline-block; }
+    .dot.stale { background: var(--yellow); }
+
+    /* API reference */
+    .api-box {
+      margin-top: 1.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem 1.25rem;
+    }
+    .api-box h3 { font-size: 0.8rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.6rem; }
+    .api-box code { font-family: monospace; font-size: 0.82rem; color: var(--accent); }
+    .api-box a { color: inherit; text-decoration: none; }
+    .api-box a:hover { text-decoration: underline; }
+    .api-box ul { list-style: none; display: flex; flex-direction: column; gap: 0.3rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>&#x1F4CD; Lake Travis Live Weather</h1>
+    <span class="subtitle">ARL:UT Station — live.pigeonstorm.com</span>
+    <span id="station-time">loading…</span>
+  </header>
+
+  <div id="admin-bar" style="display:none; margin-bottom:1.5rem;">
+    <button id="pull-btn" type="button" style="padding:0.5rem 1rem;background:var(--accent);color:var(--bg);border:none;border-radius:6px;cursor:pointer;font-weight:600;">Force Scrape</button>
+    <span id="pull-result" style="font-size:0.8rem; margin-left:0.5rem; color:var(--muted);"></span>
+  </div>
+
+  <!-- Wind hero -->
+  <div class="wind-hero">
+    <div>
+      <div class="wind-speed" id="wind-speed">— <span>mph</span></div>
+      <div style="color:var(--muted);font-size:0.8rem;margin-top:4px">current wind</div>
+    </div>
+    <div id="wind-dir-badge" class="wind-dir-badge">—</div>
+    <div class="compass-wrap">
+      <div class="compass-ring">
+        <span class="compass-label n">N</span>
+        <span class="compass-label s">S</span>
+        <span class="compass-label e">E</span>
+        <span class="compass-label w">W</span>
+        <div id="compass-arrow" class="compass-arrow"></div>
+        <div class="compass-dot"></div>
+      </div>
+    </div>
+    <div class="wind-stats">
+      <div class="wind-stat"><span class="label">Avg</span><span class="value" id="wind-avg">—</span></div>
+      <div class="wind-stat"><span class="label">Hi</span><span class="value" id="wind-hi">—</span></div>
+      <div class="wind-stat"><span class="label">RMS</span><span class="value" id="wind-rms">—</span></div>
+      <div class="wind-stat"><span class="label">Vector avg</span><span class="value" id="wind-vec">—</span></div>
+    </div>
+  </div>
+
+  <!-- Other metrics -->
+  <div class="grid">
+    <div class="card"><div class="label">Temperature</div><div class="value"><span id="temperature">—</span><span class="unit"> °F</span></div></div>
+    <div class="card"><div class="label">Humidity</div><div class="value"><span id="humidity">—</span><span class="unit"> %</span></div></div>
+    <div class="card"><div class="label">Dewpoint</div><div class="value"><span id="dewpoint">—</span><span class="unit"> °F</span></div></div>
+    <div class="card"><div class="label">Barometer</div><div class="value"><span id="barometer">—</span><span class="unit"> inHg</span></div></div>
+    <div class="card"><div class="label">Baro trend (3h)</div><div class="value"><span id="baro-trend">—</span><span class="unit"> inHg</span></div></div>
+    <div class="card"><div class="label">Rain today</div><div class="value"><span id="rain">—</span><span class="unit"> in</span></div></div>
+    <div class="card"><div class="label">Rain rate</div><div class="value"><span id="rain-rate">—</span><span class="unit"> in/hr</span></div></div>
+    <div class="card"><div class="label">Wind chill</div><div class="value"><span id="wind-chill">—</span><span class="unit"> °F</span></div></div>
+    <div class="card"><div class="label">Heat index</div><div class="value"><span id="heat-index">—</span><span class="unit"> °F</span></div></div>
+  </div>
+
+  <!-- API reference -->
+  <div class="api-box">
+    <h3>API</h3>
+    <ul>
+      <li><a href="/live"><code>GET /live</code></a> — most recent reading (JSON)</li>
+      <li><a href="/history"><code>GET /history?limit=N</code></a> — last N readings (max 1000)</li>
+      <li><a href="/stats"><code>GET /stats</code></a> — total count + last scraped time</li>
+      <li><code>gRPC :50051</code> — <code>live.LiveWeather/{GetLatest,GetHistory}</code></li>
+    </ul>
+  </div>
+
+  <footer>
+    <span><span id="status-dot" class="dot stale"></span> <span id="status-text">connecting…</span></span>
+    <span>auto-refresh every 5 min</span>
+    <span>source: <a href="https://wwwext.arlut.utexas.edu/weather/lake/" style="color:var(--accent)">ARL:UT Lake Travis</a></span>
+  </footer>
+
+  <script>
+    function fmt(v, dec = 1) {
+      return v == null ? '—' : (+v).toFixed(dec);
+    }
+
+    function setArrow(deg) {
+      document.getElementById('compass-arrow').style.transform =
+        `translateX(-50%) translateY(-100%) rotate(${deg}deg)`;
+    }
+
+    async function refresh() {
+      try {
+        const r = await fetch('/live');
+        if (!r.ok) { setStatus(false, 'no data yet'); return; }
+        const d = await r.json();
+
+        document.getElementById('station-time').textContent = d.station_time || '';
+        document.getElementById('wind-speed').innerHTML = `${fmt(d.wind_speed_mph, 0)} <span>mph</span>`;
+        document.getElementById('wind-dir-badge').textContent = d.wind_direction || '—';
+        setArrow(d.wind_direction_deg || 0);
+
+        document.getElementById('wind-avg').textContent = fmt(d.wind_avg_mph, 0) + ' mph';
+        document.getElementById('wind-hi').textContent  = fmt(d.wind_hi_mph, 0) + ' mph';
+        document.getElementById('wind-rms').textContent = fmt(d.wind_rms_mph, 0) + ' mph';
+        document.getElementById('wind-vec').textContent = fmt(d.wind_vector_avg_mph, 0) + ' mph';
+
+        document.getElementById('temperature').textContent = fmt(d.temperature_f);
+        document.getElementById('humidity').textContent    = fmt(d.humidity_pct, 0);
+        document.getElementById('dewpoint').textContent    = fmt(d.dewpoint_f);
+        document.getElementById('barometer').textContent   = fmt(d.barometer_inhg, 3);
+        document.getElementById('baro-trend').textContent  = d.barometer_trend != null ? fmt(d.barometer_trend, 3) : '—';
+        document.getElementById('rain').textContent        = fmt(d.rain_in, 2);
+        document.getElementById('rain-rate').textContent   = fmt(d.rain_rate_in_hr, 2);
+        document.getElementById('wind-chill').textContent  = fmt(d.wind_chill_f);
+        document.getElementById('heat-index').textContent  = fmt(d.heat_index_f);
+
+        const age = (Date.now() - new Date(d.scraped_at).getTime()) / 1000;
+        setStatus(age < 300, `scraped ${Math.round(age)}s ago`);
+      } catch (e) {
+        setStatus(false, 'fetch error');
+      }
+    }
+
+    function setStatus(ok, msg) {
+      document.getElementById('status-dot').className = 'dot' + (ok ? '' : ' stale');
+      document.getElementById('status-text').textContent = msg;
+    }
+
+    if (__IS_ADMIN__) {
+      document.getElementById('admin-bar').style.display = 'flex';
+      document.getElementById('admin-bar').style.alignItems = 'center';
+      document.getElementById('pull-btn').addEventListener('click', async () => {
+        const btn = document.getElementById('pull-btn');
+        const out = document.getElementById('pull-result');
+        btn.disabled = true;
+        out.textContent = 'scraping…';
+        try {
+          const userParam = new URLSearchParams(location.search).get('user') || 'victor';
+          const res = await fetch(`/pull?user=${encodeURIComponent(userParam)}`, { method: 'POST' });
+          const data = await res.json().catch(() => ({}));
+          if (res.ok && data.ok) {
+            out.textContent = `ok — ${data.wind_speed_mph} mph ${data.wind_direction}`;
+            refresh();
+          } else {
+            out.textContent = data.error || res.statusText || 'failed';
+          }
+        } catch (e) {
+          out.textContent = 'error: ' + e.message;
+        }
+        btn.disabled = false;
+      });
+    }
+
+    refresh();
+    setInterval(refresh, 300_000);
+  </script>
+</body>
+</html>

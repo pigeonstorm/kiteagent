@@ -205,7 +205,7 @@ impl Db {
         let conn = self.conn();
         let (total, hits): (i64, i64) = conn.query_row(
             "SELECT COUNT(*), COALESCE(SUM(cache_hit), 0) FROM request_log \
-             WHERE ts > datetime('now', '-24 hours') AND path = '/v1/forecast'",
+             WHERE ts > datetime('now', '-24 hours') AND path = '/forecast'",
             [],
             |r| Ok((r.get(0)?, r.get(1)?)),
         )?;
