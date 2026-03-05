@@ -266,7 +266,8 @@ async fn pull_forecast(
     Query(params): Query<HashMap<String, String>>,
     State(state): State<Arc<AppState>>,
 ) -> impl IntoResponse {
-    let is_admin = params.get("user").map(|u| u.trim().to_lowercase() == "victor").unwrap_or(false);
+    let user = params.get("user").map(|u| u.trim().to_lowercase()).unwrap_or_default();
+    let is_admin = !user.is_empty() && user == state.config.user.name.trim().to_lowercase();
     if !is_admin {
         return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error": "forbidden"}))).into_response();
     }

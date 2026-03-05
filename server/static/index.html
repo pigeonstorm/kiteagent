@@ -378,7 +378,7 @@
     // ── Pull button (admin only) ───────────────────────────────────────────────
 
     const isAdmin = __IS_ADMIN__;
-    const adminToken = new URLSearchParams(location.search).get('token') ?? '';
+    const userParam = new URLSearchParams(location.search).get('user') ?? '';
     if (isAdmin) document.getElementById('pull-btn').style.display = '';
 
     document.getElementById('pull-btn').addEventListener('click', async () => {
@@ -388,7 +388,7 @@
       btn.disabled = true;
       btn.textContent = 'Pulling…';
       try {
-        const pullUrl = adminToken ? `/pull?token=${encodeURIComponent(adminToken)}` : '/pull';
+        const pullUrl = userParam ? `/pull?user=${encodeURIComponent(userParam)}` : '/pull';
         const res = await fetch(pullUrl, { method: 'POST' });
         const d = await res.json();
         if (d.ok) {
