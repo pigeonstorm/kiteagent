@@ -77,7 +77,7 @@
     }
     .wind-val { font-weight: 600; }
     .gust-val { color: var(--pico-muted-color); font-size: 0.75rem; }
-    .fetch-meta { color: var(--pico-muted-color); font-size: 0.75rem; margin-bottom: 0.75rem; }
+    .fetch-meta { color: var(--pico-muted-color); font-size: 0.75rem; margin-bottom: 0.75rem; line-height: 1.4; }
 
     small.version { display: block; text-align: center; color: var(--pico-muted-color); font-size: 0.7rem; margin-top: 2rem; }
   </style>
@@ -101,11 +101,6 @@
   </article>
 
   <article>
-    <header>Service Status</header>
-    <div id="update-info"><span aria-busy="true">Loading…</span></div>
-  </article>
-
-  <article>
     <header>
       48-Hour Forecast
       <button id="pull-btn" class="outline" style="float:right;padding:0.2rem 0.7rem;font-size:0.75rem;margin:0;display:none">Pull now</button>
@@ -113,11 +108,16 @@
     <div id="forecast-info"><span aria-busy="true">Loading…</span></div>
   </article>
 
-  <small class="version">KiteAgent v2 · Windy Point, Lake Travis</small>
+  <article>
+    <header>Service Status</header>
+    <div id="update-info"><span aria-busy="true">Loading…</span></div>
+  </article>
+
+  <small class="version">KiteAgent 1.0.0 · Windy Point, Lake Travis</small>
 
   <script>
     const VAPID_PUBLIC_KEY = '__VAPID_PUBLIC_KEY__';
-    // __IS_ADMIN__ is replaced server-side based on ?user= query param
+    const LIVE_ENABLED = __LIVE_ENABLED__;
 
     async function urlBase64ToUint8Array(base64String) {
       const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -281,13 +281,21 @@
     async function loadStatus() {
       const el = document.getElementById('update-info');
       try {
-        const d = await fetch('/status').then(r => r.json());
+        const [statusRes, forecastRes, liveRes] = await Promise.all([
+          fetch('/status').then(r => r.json()),
+          fetch('/forecast').then(r => r.ok ? r.json() : null).catch(() => null),
+          LIVE_ENABLED ? fetch('/live').then(r => r.ok ? r.json() : null).catch(() => null) : Promise.resolve(null),
+        ]);
+        const d = statusRes;
         let html = '';
-        if (d.last_forecast_fetch) {
+        if (forecastRes && !forecastRes.error) {
+          html += infoRow('Weather forecast', `${reltime(forecastRes.fetched_at)} · ${forecastRes.source}`);
+          html += infoRow('Forecast range', `${fmtDay(forecastRes.valid_from)} – ${fmtDay(forecastRes.valid_to)}`);
+        } else if (d.last_forecast_fetch) {
           const f = d.last_forecast_fetch;
-          html += infoRow('Forecast pulled', `${reltime(f.at)} ${f.ok ? '✓' : '✗'}`);
-          html += infoRow('Source', f.source);
+          html += infoRow('Forecast', `${reltime(f.at)} ${f.ok ? '✓' : '✗'}`);
         }
+        html += infoRow('Live', liveRes?.scraped_at ? `${reltime(liveRes.scraped_at)} · ARL:UT Lake Travis` : '—');
         if (d.last_analysis) {
           const a = d.last_analysis;
           html += infoRow('Last analysis', reltime(a.at));
@@ -297,7 +305,7 @@
             const disc = (w.disciplines || []).map(d => `<span class="badge">${d}</span>`).join('');
             html += `<div class="next-window">
               <strong>Next window</strong>
-              <div>${fmtTime(w.start)} – ${fmtTime(w.end)} · ${Math.round(w.avg_kn ?? 0)} kn · ${bearing(w.dir_deg ?? 0)}</div>
+              <div>${fmtTime(w.start)} – ${fmtTime(w.end)} · ${Math.round(w.avg_kn ?? 0)} kts · ${bearing(w.dir_deg ?? 0)}</div>
               ${disc ? `<div class="badges">${disc}</div>` : ''}
             </div>`;
           }
@@ -311,6 +319,22 @@
         el.innerHTML = html || '<span style="color:var(--pico-muted-color)">No data yet</span>';
       } catch {
         el.innerHTML = '<span style="color:var(--pico-muted-color)">Could not load status</span>';
+      }
+    }
+
+    // ── /live (overlay) ───────────────────────────────────────────────────────
+
+    let liveData = null;
+    const MPH_TO_KN = 0.868976;
+
+    async function loadLive() {
+      if (!LIVE_ENABLED) return;
+      try {
+        const r = await fetch('/live');
+        if (!r.ok) { liveData = null; return; }
+        liveData = await r.json();
+      } catch {
+        liveData = null;
       }
     }
 
@@ -339,9 +363,21 @@
           return;
         }
 
-        let meta = `<p class="fetch-meta">Pulled ${reltime(d.fetched_at)} · ${d.source} · valid ${fmtDay(d.valid_from)} – ${fmtDay(d.valid_to)}</p>`;
-
         let rows = '';
+        if (liveData) {
+          const windKn = (liveData.wind_speed_mph || 0) * MPH_TO_KN;
+          const gustKn = (liveData.wind_hi_mph || 0) * MPH_TO_KN;
+          const dir = liveData.wind_direction_deg ?? 0;
+          rows += `<tr class="rideable day-sep" style="background:color-mix(in srgb, var(--pico-primary) 18%, transparent)">
+            <td><strong>Now</strong><br><span style="font-size:0.7rem;color:var(--pico-muted-color)">live</span></td>
+            <td><span class="wind-val">${Math.round(windKn)}</span> <span class="gust-val">↑${Math.round(gustKn)}</span> kts</td>
+            <td><span style="color:var(--pico-primary)">◉</span></td>
+            <td>${bearing(dir)}</td>
+            <td>${liveData.temperature_f != null ? Math.round(liveData.temperature_f) + '°F' : '—'}</td>
+            <td>◉</td>
+            <td></td>
+          </tr>`;
+        }
         let lastDay = '';
         for (const h of hours) {
           const day = fmtDay(h.time);
@@ -352,7 +388,8 @@
           const sepClass = isSep ? ' day-sep' : '';
           rows += `<tr class="${rideClass}${sepClass}">
             <td>${isSep ? `<strong>${day}</strong><br>` : ''}${fmtTime(h.time)}</td>
-            <td><span class="wind-val">${Math.round(h.wind_kn)}</span> <span class="gust-val">↑${Math.round(h.gusts_kn)}</span> kn</td>
+            <td><span class="wind-val">${Math.round(h.wind_kn)}</span> <span class="gust-val">↑${Math.round(h.gusts_kn)}</span> kts</td>
+            <td>—</td>
             <td>${bearing(h.dir_deg)}</td>
             <td>${h.temp_c != null ? Math.round(h.temp_c) + '°C' : '—'}</td>
             <td>${wmoIcon(h.wmo)}</td>
@@ -363,12 +400,12 @@
         const table = `
           <table id="forecast-table">
             <thead><tr>
-              <th>Time</th><th>Wind / Gusts</th><th>Dir</th><th>Temp</th><th>Cond</th><th>Gear</th>
+              <th>Time</th><th>Wind / Gusts</th><th>Live</th><th>Dir</th><th>Temp</th><th>Cond</th><th>Gear</th>
             </tr></thead>
             <tbody>${rows}</tbody>
           </table>`;
 
-        el.innerHTML = meta + table;
+        el.innerHTML = table;
       } catch (e) {
         el.innerHTML = '<span style="color:var(--pico-muted-color)">Could not load forecast</span>';
         console.error(e);
@@ -407,9 +444,15 @@
     });
 
     loadStatus();
-    loadForecast();
+    (async () => {
+      if (LIVE_ENABLED) await loadLive();
+      loadForecast();
+    })();
     setInterval(loadStatus, 60_000);
-    setInterval(loadForecast, 300_000);
+    setInterval(async () => {
+      if (LIVE_ENABLED) await loadLive();
+      loadForecast();
+    }, 300_000);
   </script>
 </body>
 </html>
