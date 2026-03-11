@@ -153,6 +153,7 @@ mod tests {
                 log_dir: "logs".into(),
                 log_days: 30,
             },
+            live: None,
         }
     }
 

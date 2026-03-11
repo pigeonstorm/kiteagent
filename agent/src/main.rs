@@ -1,4 +1,3 @@
-use kiteagent_agent::{conditions, notify, weather};
 
 use anyhow::Result;
 use kiteagent_shared::{Config, Db};
@@ -9,9 +8,10 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::Layer;
 
-use crate::conditions::{evaluate, RideableWindow};
-use crate::notify::{send_morning_digest, send_opportunity_alert};
-use crate::weather::fetch_forecast;
+use kiteagent_agent::conditions::{evaluate, RideableWindow};
+use kiteagent_agent::live_wind::check_live_wind;
+use kiteagent_agent::notify::{send_morning_digest, send_opportunity_alert};
+use kiteagent_agent::weather::fetch_forecast;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -139,8 +139,26 @@ async fn main() -> Result<()> {
         )
         .await?;
 
+    let cfg3 = Arc::clone(&cfg);
+    let db3 = Arc::clone(&db);
+    let client3 = Arc::clone(&client);
+    scheduler
+        .add(
+            Job::new_async("0 */30 * * * *", move |_uuid, _lock| {
+                let cfg = Arc::clone(&cfg3);
+                let db = Arc::clone(&db3);
+                let client = Arc::clone(&client3);
+                Box::pin(async move {
+                    if let Err(e) = check_live_wind(&cfg, &db, &client).await {
+                        tracing::error!(%e, "live_wind check failed");
+                    }
+                })
+            })?
+        )
+        .await?;
+
     scheduler.start().await?;
-    info!("scheduler started (6-hourly fetch, 7:30am CST digest)");
+    info!("scheduler started (6-hourly fetch, 7:30am CST digest, 30-min live wind)");
 
     loop {
         tokio::time::sleep(tokio::time::Duration::from_secs(3600)).await;

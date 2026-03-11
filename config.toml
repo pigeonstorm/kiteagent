@@ -44,3 +44,7 @@ daylight_only = true   # never flag windows outside sunrise–sunset
 db_path = "kiteagent.db"
 log_dir = "logs"
 log_days = 30
+
+# Optional: enable live wind checks from live-server (every 30 min)
+# [live]
+# grpc_url = "http://localhost:50051"

@@ -12,6 +12,13 @@ pub struct Config {
     pub schedule: ScheduleConfig,
     pub thresholds: ThresholdsConfig,
     pub storage: StorageConfig,
+    #[serde(default)]
+    pub live: Option<LiveConfig>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct LiveConfig {
+    pub grpc_url: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]

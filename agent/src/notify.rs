@@ -20,6 +20,69 @@ fn wind_bucket(wind_kn: f64) -> f64 {
     (wind_kn / 3.0).floor() * 3.0
 }
 
+fn live_wind_message_hash(wind_bucket: f64, dir_bucket: i32) -> String {
+    let input = format!("live_wind|{:.1}|{}", wind_bucket, dir_bucket);
+    let mut hasher = Sha256::new();
+    hasher.update(input.as_bytes());
+    format!("{:x}", hasher.finalize())
+}
+
+pub async fn send_live_wind_alert(
+    wind_kn: f64,
+    dir_deg: f64,
+    dir_cardinal: &str,
+    gusts_kn: f64,
+    cfg: &Config,
+    db: &Db,
+    client: &reqwest::Client,
+) -> Result<bool> {
+    let cooldown = cfg.schedule.notification_cooldown_hours as i64;
+    let wb = wind_bucket(wind_kn);
+    let dir_bucket = ((dir_deg / 22.5) + 0.5) as i32 % 16;
+    let hash = live_wind_message_hash(wb, dir_bucket);
+
+    if db.notification_recently_sent(&hash, cooldown)? {
+        debug!(hash = %hash, "live wind notification skipped (dedup)");
+        return Ok(false);
+    }
+
+    let count_today = db.notifications_count_today()?;
+    if count_today >= cfg.schedule.max_notifications_per_day as i64 {
+        debug!(
+            count = count_today,
+            max = cfg.schedule.max_notifications_per_day,
+            "live wind notification skipped (daily cap)"
+        );
+        return Ok(false);
+    }
+
+    let title = "Live wind at Lake Travis";
+    let body = format!(
+        "Wind: {:.0} kn (gusts {:.0} kn) | Direction: {} ({:.0}°)",
+        wind_kn, gusts_kn, dir_cardinal, dir_deg
+    );
+
+    send_push(cfg, title, &body, client).await?;
+
+    let now = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string();
+    db.insert_notification_sent(
+        &now,
+        &now,
+        &now,
+        wind_kn,
+        dir_deg,
+        "live",
+        &hash,
+    )?;
+
+    info!(
+        wind_kn = wind_kn,
+        dir = %dir_cardinal,
+        "live wind notification sent"
+    );
+    Ok(true)
+}
+
 pub async fn send_opportunity_alert(
     window: &RideableWindow,
     cfg: &Config,
