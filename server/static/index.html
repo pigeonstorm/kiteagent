@@ -7,7 +7,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="KiteAgent">
-  <link rel="apple-touch-icon" href="/logo.png">
+  <link rel="icon" href="/logo-32.png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/logo-180.png" sizes="180x180">
   <link rel="manifest" href="/manifest.json">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
   <style>
@@ -83,7 +84,7 @@
   </style>
 </head>
 <body>
-  <h1><img src="/logo.png" alt="KiteAgent Logo">KiteAgent</h1>
+  <h1><img src="/logo.png" alt="KiteAgent Logo" title="KiteAgent">KiteAgent</h1>
   <p class="subtitle">Windy Point, Lake Travis — Kite Forecast Alerts</p>
 
   <article>
@@ -393,7 +394,7 @@
             <td>${bearing(h.dir_deg)}</td>
             <td>${h.temp_c != null ? Math.round(h.temp_c) + '°C' : '—'}</td>
             <td>${wmoIcon(h.wmo)}</td>
-            ${h.rideable ? '<td><img src="/logo.png" style="height:1.2em;vertical-align:left"></td>' : (h.wind_kn >= 8 ? '<td><img src="/logo.png" style="height:1.2em;vertical-align:middle;opacity:0.9"></td>' : '<td></td>')}
+            ${h.rideable ? '<td><img src="/logo.png" alt="KiteAgent Logo" title="KiteAgent" style="height:1.2em;vertical-align:left"></td>' : (h.wind_kn >= 8 ? '<td><img src="/logo.png" alt="KiteAgent Logo" title="KiteAgent" style="height:1.2em;vertical-align:middle;opacity:0.9"></td>' : '<td></td>')}
           </tr>`;
         }
 

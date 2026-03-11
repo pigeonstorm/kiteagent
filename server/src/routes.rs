@@ -78,6 +78,8 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/sw.js", get(serve_sw))
         .route("/manifest.json", get(serve_manifest))
         .route("/logo.png", get(serve_logo))
+        .route("/logo-32.png", get(serve_logo_32))
+        .route("/logo-180.png", get(serve_logo_180))
         .route("/subscribe", post(subscribe))
         .route("/push", post(push))
         .route("/test-push", post(test_push))
@@ -163,6 +165,48 @@ async fn serve_logo() -> impl IntoResponse {
         }
     }
     
+    (StatusCode::NOT_FOUND, "logo not found").into_response()
+}
+
+async fn serve_logo_32() -> impl IntoResponse {
+    let manifest_dir = env!("CARGO_MANIFEST_DIR");
+    let candidates = [
+        format!("{}/static/logo-32.png", manifest_dir),
+        "server/static/logo-32.png".to_string(),
+        "static/logo-32.png".to_string(),
+    ];
+
+    for path in &candidates {
+        if let Ok(data) = std::fs::read(path) {
+            return axum::response::Response::builder()
+                .header(header::CONTENT_TYPE, "image/png")
+                .body(axum::body::Body::from(data))
+                .unwrap()
+                .into_response();
+        }
+    }
+
+    (StatusCode::NOT_FOUND, "logo not found").into_response()
+}
+
+async fn serve_logo_180() -> impl IntoResponse {
+    let manifest_dir = env!("CARGO_MANIFEST_DIR");
+    let candidates = [
+        format!("{}/static/logo-180.png", manifest_dir),
+        "server/static/logo-180.png".to_string(),
+        "static/logo-180.png".to_string(),
+    ];
+
+    for path in &candidates {
+        if let Ok(data) = std::fs::read(path) {
+            return axum::response::Response::builder()
+                .header(header::CONTENT_TYPE, "image/png")
+                .body(axum::body::Body::from(data))
+                .unwrap()
+                .into_response();
+        }
+    }
+
     (StatusCode::NOT_FOUND, "logo not found").into_response()
 }
 
