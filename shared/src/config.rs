@@ -19,6 +19,9 @@ pub struct Config {
 #[derive(Debug, Clone, Deserialize)]
 pub struct LiveConfig {
     pub grpc_url: String,
+    /// HTTP base URL for live-server (e.g. http://localhost:8082). When set, server proxies /live.
+    #[serde(default)]
+    pub http_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -66,6 +69,9 @@ pub struct NotificationConfig {
 pub struct ServerConfig {
     pub bind: String,
     pub vapid_subject: String,
+    /// HRRR forecast API base URL (e.g. http://localhost:8081). Used by /pull.
+    #[serde(default)]
+    pub hrrr_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

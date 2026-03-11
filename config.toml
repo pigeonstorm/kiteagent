@@ -24,6 +24,7 @@ push_secret = "change-this-random-secret"
 [server]
 bind = "0.0.0.0:8080"
 vapid_subject = "mailto:root@pigeonstorm.com"
+hrrr_url = "http://localhost:8081"
 
 [schedule]
 fetch_interval_min = 60
@@ -45,6 +46,6 @@ db_path = "kiteagent.db"
 log_dir = "logs"
 log_days = 30
 
-# Optional: enable live wind checks from live-server (every 30 min)
-# [live]
-# grpc_url = "http://localhost:50051"
+[live]
+grpc_url = "http://localhost:50051"
+http_url = "http://localhost:8082"

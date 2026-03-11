@@ -84,6 +84,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/status", get(status))
         .route("/forecast", get(forecast))
         .route("/pull", post(pull_forecast))
+        .route("/live", get(proxy_live))
         .layer(CorsLayer::permissive())
         .with_state(state)
 }
@@ -111,10 +112,17 @@ async fn serve_index(
 ) -> impl IntoResponse {
     let user = params.get("user").map(|s| s.trim().to_lowercase()).unwrap_or_default();
     let is_admin = !user.is_empty() && user == state.config.user.name.trim().to_lowercase();
+    let live_enabled = state
+        .config
+        .live
+        .as_ref()
+        .and_then(|l| l.http_url.as_ref())
+        .is_some();
     let public_key = state.vapid.public_key_base64url().unwrap_or_default();
     let html = load_index_html()
         .replace("__VAPID_PUBLIC_KEY__", &public_key)
-        .replace("__IS_ADMIN__", if is_admin { "true" } else { "false" });
+        .replace("__IS_ADMIN__", if is_admin { "true" } else { "false" })
+        .replace("__LIVE_ENABLED__", if live_enabled { "true" } else { "false" });
     let headers = [
         (header::CONTENT_TYPE, "text/html"),
         (header::CACHE_CONTROL, "no-cache, no-store, must-revalidate"),
@@ -257,10 +265,7 @@ async fn push(State(state): State<Arc<AppState>>, req: Request) -> impl IntoResp
 
 // ── /pull ─────────────────────────────────────────────────────────────────────
 
-#[cfg(debug_assertions)]
-const OPEN_METEO_URL: &str = "http://localhost:8081/forecast";
-#[cfg(not(debug_assertions))]
-const OPEN_METEO_URL: &str = "https://hrrr.pigeonstorm.com/forecast";
+const DEFAULT_HRRR_URL: &str = "https://hrrr.pigeonstorm.com";
 
 async fn pull_forecast(
     Query(params): Query<HashMap<String, String>>,
@@ -272,9 +277,15 @@ async fn pull_forecast(
         return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error": "forbidden"}))).into_response();
     }
     let cfg = &state.config;
+    let base = cfg
+        .server
+        .hrrr_url
+        .as_deref()
+        .unwrap_or(DEFAULT_HRRR_URL)
+        .trim_end_matches('/');
     let url = format!(
-        "{}?latitude={}&longitude={}&hourly=windspeed_10m,winddirection_10m,windgusts_10m,temperature_2m,weathercode&wind_speed_unit=kn&forecast_days=2&timezone=America/Chicago",
-        OPEN_METEO_URL, cfg.location.lat, cfg.location.lon
+        "{}/forecast?latitude={}&longitude={}&hourly=windspeed_10m,winddirection_10m,windgusts_10m,temperature_2m,weathercode&wind_speed_unit=kn&forecast_days=2&timezone=America/Chicago",
+        base, cfg.location.lat, cfg.location.lon
     );
 
     let resp = match state.http.get(&url).send().await {
@@ -316,6 +327,41 @@ async fn pull_forecast(
             tracing::error!(%e, "pull: DB insert failed");
             (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response()
         }
+    }
+}
+
+// ── /live (proxy to live-server) ──────────────────────────────────────────────
+
+async fn proxy_live(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let base = match state.config.live.as_ref().and_then(|l| l.http_url.as_ref()) {
+        Some(u) => u,
+        None => {
+            return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "live not configured"})))
+                .into_response()
+        }
+    };
+    let url = format!("{}/live", base.trim_end_matches('/'));
+    match state.http.get(&url).send().await {
+        Ok(resp) => {
+            let status = resp.status();
+            let body = match resp.text().await {
+                Ok(t) => t,
+                Err(e) => {
+                    return (
+                        StatusCode::BAD_GATEWAY,
+                        Json(serde_json::json!({"error": e.to_string()})),
+                    )
+                        .into_response()
+                }
+            };
+            let headers = [(header::CONTENT_TYPE, "application/json")];
+            (status, headers, body).into_response()
+        }
+        Err(e) => (
+            StatusCode::BAD_GATEWAY,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response(),
     }
 }
 
