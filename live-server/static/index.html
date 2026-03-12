@@ -178,7 +178,7 @@
   <!-- Wind hero -->
   <div class="wind-hero">
     <div>
-      <div class="wind-speed" id="wind-speed">— <span>mph</span></div>
+      <div class="wind-speed" id="wind-speed">— <span>kts</span></div>
       <div style="color:var(--muted);font-size:0.8rem;margin-top:4px">current wind</div>
     </div>
     <div id="wind-dir-badge" class="wind-dir-badge">—</div>
@@ -247,14 +247,14 @@
         const d = await r.json();
 
         document.getElementById('station-time').textContent = d.station_time || '';
-        document.getElementById('wind-speed').innerHTML = `${fmt(d.wind_speed_mph, 0)} <span>mph</span>`;
+        document.getElementById('wind-speed').innerHTML = `${fmt(d.wind_speed_kn, 0)} <span>kts</span>`;
         document.getElementById('wind-dir-badge').textContent = d.wind_direction || '—';
         setArrow(d.wind_direction_deg || 0);
 
-        document.getElementById('wind-avg').textContent = fmt(d.wind_avg_mph, 0) + ' mph';
-        document.getElementById('wind-hi').textContent  = fmt(d.wind_hi_mph, 0) + ' mph';
-        document.getElementById('wind-rms').textContent = fmt(d.wind_rms_mph, 0) + ' mph';
-        document.getElementById('wind-vec').textContent = fmt(d.wind_vector_avg_mph, 0) + ' mph';
+        document.getElementById('wind-avg').textContent = fmt(d.wind_avg_kn, 0) + ' kts';
+        document.getElementById('wind-hi').textContent  = fmt(d.wind_hi_kn, 0) + ' kts';
+        document.getElementById('wind-rms').textContent = fmt(d.wind_rms_kn, 0) + ' kts';
+        document.getElementById('wind-vec').textContent = fmt(d.wind_vector_avg_kn, 0) + ' kts';
 
         document.getElementById('temperature').textContent = fmt(d.temperature_f);
         document.getElementById('humidity').textContent    = fmt(d.humidity_pct, 0);

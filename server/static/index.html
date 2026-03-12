@@ -18,25 +18,26 @@
       --pico-primary-background: rgba(26, 159, 181, 0.1);
       --pico-primary-inverse: #051a2c;
       --pico-muted-border-color: rgba(26, 159, 181, 0.2);
+      --pico-block-spacing: 0.75rem;
     }
-    body { max-width: 40rem; margin: 0 auto; padding: 2rem 1rem; }
-    h1 { margin-bottom: 0.15rem; display: flex; align-items: center; gap: 0.75rem; }
-    h1 img { height: 2.5rem; width: auto; }
-    .subtitle { color: var(--pico-muted-color); font-size: 0.875rem; margin-bottom: 2rem; }
+    body { max-width: 40rem; margin: 0 auto; padding: 1rem 0.75rem; }
+    h1 { margin-bottom: 0.05rem; display: flex; align-items: center; gap: 0.5rem; }
+    h1 img { height: 1.5rem; width: auto; }
+    .subtitle { color: var(--pico-muted-color); font-size: 0.875rem; margin-bottom: 1rem; }
     #status { font-size: 0.875rem; }
 
     /* status rows */
     .info-row {
       display: flex; justify-content: space-between;
       border-bottom: 1px solid var(--pico-muted-border-color);
-      padding: 0.35rem 0; font-size: 0.875rem;
+      padding: 0.1rem 0; font-size: 0.875rem;
     }
     .info-row:last-child { border-bottom: none; }
     .info-row span:last-child { color: var(--pico-muted-color); font-size: 0.8rem; }
 
     /* next rideable window callout */
     .next-window {
-      margin-top: 0.75rem; padding: 0.75rem;
+      margin-top: 0.5rem; padding: 0.5rem;
       border-radius: var(--pico-border-radius);
       background: color-mix(in srgb, var(--pico-primary) 10%, transparent);
       border: 1px solid color-mix(in srgb, var(--pico-primary) 30%, transparent);
@@ -52,11 +53,11 @@
     /* forecast table */
     #forecast-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
     #forecast-table th {
-      text-align: left; padding: 0.3rem 0.4rem;
+      text-align: left; padding: 0.2rem 0.35rem;
       border-bottom: 1px solid var(--pico-muted-border-color);
       color: var(--pico-muted-color); font-weight: 600; font-size: 0.72rem;
     }
-    #forecast-table td { padding: 0.28rem 0.4rem; }
+    #forecast-table td { padding: 0.2rem 0.35rem; }
     #forecast-table tr.day-sep td {
       border-top: 1px solid var(--pico-muted-border-color);
       padding-top: 0.5rem;
@@ -78,16 +79,23 @@
     }
     .wind-val { font-weight: 600; }
     .gust-val { color: var(--pico-muted-color); font-size: 0.75rem; }
-    .fetch-meta { color: var(--pico-muted-color); font-size: 0.75rem; margin-bottom: 0.75rem; line-height: 1.4; }
+    .fetch-meta { color: var(--pico-muted-color); font-size: 0.75rem; margin-bottom: 0.5rem; line-height: 1.4; }
 
-    small.version { display: block; text-align: center; color: var(--pico-muted-color); font-size: 0.7rem; margin-top: 2rem; }
+    /* forecast & status articles: reduce gap between header and content */
+    article:has(#forecast-info) header,
+    article:has(#update-info) header { margin-bottom: 0.25rem; }
+    #forecast-info, #update-info { margin-top: 0; margin-bottom: 0; }
+    #forecast-info table { margin-top: 0; margin-bottom: 0; }
+    article:has(#forecast-info) { padding-bottom: 0.25rem; }
+
+    small.version { display: block; text-align: center; color: var(--pico-muted-color); font-size: 0.7rem; margin-top: 1rem; }
   </style>
 </head>
 <body>
   <h1><img src="/logo.png" alt="KiteAgent Logo" title="KiteAgent">KiteAgent</h1>
   <p class="subtitle">Windy Point, Lake Travis — Kite Forecast Alerts</p>
 
-  <article>
+  <article id="push-alerts">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap">
       <div>
         <strong>Push Alerts</strong>
@@ -98,7 +106,7 @@
         <button id="test-notif" class="outline" style="white-space:nowrap;padding:0.45rem 1.1rem;display:none">Test</button>
       </div>
     </div>
-    <p id="status" style="margin:0.6rem 0 0;font-size:0.8rem"></p>
+    <p id="status" style="margin:0.4rem 0 0;font-size:0.8rem"></p>
   </article>
 
   <article>
@@ -113,6 +121,11 @@
     <header>Service Status</header>
     <div id="update-info"><span aria-busy="true">Loading…</span></div>
   </article>
+
+  <div id="subscribed-actions" style="display:none;margin-top:1rem;padding-top:0.75rem;border-top:1px solid var(--pico-muted-border-color);gap:0.5rem;justify-content:center;flex-wrap:wrap;align-items:center">
+    <button id="subscribed-test" class="outline" style="font-size:0.8rem">Test notification</button>
+    <button id="subscribed-unsubscribe" class="secondary outline" style="font-size:0.8rem">Unsubscribe</button>
+  </div>
 
   <small class="version">KiteAgent 1.0.0 · Windy Point, Lake Travis</small>
 
@@ -146,11 +159,22 @@
       return null;
     }
 
+    const subscribedActions = document.getElementById('subscribed-actions');
+    const subscribedTestBtn = document.getElementById('subscribed-test');
+    const subscribedUnsubBtn = document.getElementById('subscribed-unsubscribe');
+
     function markSubscribed() {
-      btn.textContent = '✓ Subscribed';
-      btn.disabled = true;
-      testBtn.style.display = '';
-      statusEl.innerHTML = '<small style="color:var(--pico-muted-color)">You will receive alerts when conditions are good.</small>';
+      document.getElementById('push-alerts').style.display = 'none';
+      subscribedActions.style.display = 'flex';
+    }
+
+    function markUnsubscribed() {
+      document.getElementById('push-alerts').style.display = '';
+      subscribedActions.style.display = 'none';
+      btn.textContent = 'Subscribe';
+      btn.disabled = false;
+      testBtn.style.display = 'none';
+      statusEl.innerHTML = '';
     }
 
     // Show a hint immediately if push won't work in this context.
@@ -210,29 +234,69 @@
       }
     });
 
+    async function sendTestNotification() {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (!sub) return false;
+      const res = await fetch('/test-push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sub.toJSON())
+      });
+      return res.ok;
+    }
+
     testBtn.addEventListener('click', async () => {
       testBtn.setAttribute('aria-busy', 'true');
       testBtn.disabled = true;
       try {
-        const reg = await navigator.serviceWorker.ready;
-        const sub = await reg.pushManager.getSubscription();
-        if (!sub) {
-          statusEl.innerHTML = '<mark>No active subscription found. Try subscribing again.</mark>';
-          return;
-        }
-        const res = await fetch('/test-push', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(sub.toJSON())
-        });
-        if (!res.ok) throw new Error(`Server error ${res.status}`);
-        statusEl.innerHTML = '<small style="color:var(--pico-muted-color)">Test notification sent!</small>';
+        const ok = await sendTestNotification();
+        statusEl.innerHTML = ok ? '<small style="color:var(--pico-muted-color)">Test notification sent!</small>' : '<mark>No active subscription found. Try subscribing again.</mark>';
       } catch (e) {
         statusEl.innerHTML = `<mark>${e.message}</mark>`;
         console.error(e);
       } finally {
         testBtn.removeAttribute('aria-busy');
         testBtn.disabled = false;
+      }
+    });
+
+    subscribedTestBtn.addEventListener('click', async () => {
+      subscribedTestBtn.setAttribute('aria-busy', 'true');
+      subscribedTestBtn.disabled = true;
+      try {
+        const ok = await sendTestNotification();
+        if (ok) subscribedTestBtn.textContent = 'Sent!';
+        setTimeout(() => { subscribedTestBtn.textContent = 'Test notification'; }, 2000);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        subscribedTestBtn.removeAttribute('aria-busy');
+        subscribedTestBtn.disabled = false;
+      }
+    });
+
+    subscribedUnsubBtn.addEventListener('click', async () => {
+      subscribedUnsubBtn.setAttribute('aria-busy', 'true');
+      subscribedUnsubBtn.disabled = true;
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        if (sub) {
+          await fetch('/unsubscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(sub.toJSON())
+          });
+          await sub.unsubscribe();
+        }
+        markUnsubscribed();
+        loadStatus();
+      } catch (e) {
+        console.error(e);
+      } finally {
+        subscribedUnsubBtn.removeAttribute('aria-busy');
+        subscribedUnsubBtn.disabled = false;
       }
     });
 
@@ -285,7 +349,7 @@
         const [statusRes, forecastRes, liveRes] = await Promise.all([
           fetch('/status').then(r => r.json()),
           fetch('/forecast').then(r => r.ok ? r.json() : null).catch(() => null),
-          LIVE_ENABLED ? fetch('/live').then(r => r.ok ? r.json() : null).catch(() => null) : Promise.resolve(null),
+          LIVE_ENABLED ? fetch('/live', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null) : Promise.resolve(null),
         ]);
         const d = statusRes;
         let html = '';
@@ -296,7 +360,7 @@
           const f = d.last_forecast_fetch;
           html += infoRow('Forecast', `${reltime(f.at)} ${f.ok ? '✓' : '✗'}`);
         }
-        html += infoRow('Live', liveRes?.scraped_at ? `${reltime(liveRes.scraped_at)} · ARL:UT Lake Travis` : '—');
+        html += infoRow('Live', liveRes?.scraped_at ? `${reltime(liveRes.scraped_at)} - ARL:UT Lake Travis` : '—');
         if (d.last_analysis) {
           const a = d.last_analysis;
           html += infoRow('Last analysis', reltime(a.at));
@@ -326,12 +390,11 @@
     // ── /live (overlay) ───────────────────────────────────────────────────────
 
     let liveData = null;
-    const MPH_TO_KN = 0.868976;
 
     async function loadLive() {
       if (!LIVE_ENABLED) return;
       try {
-        const r = await fetch('/live');
+        const r = await fetch('/live', { cache: 'no-store' });
         if (!r.ok) { liveData = null; return; }
         liveData = await r.json();
       } catch {
@@ -366,8 +429,8 @@
 
         let rows = '';
         if (liveData) {
-          const windKn = (liveData.wind_speed_mph || 0) * MPH_TO_KN;
-          const gustKn = (liveData.wind_hi_mph || 0) * MPH_TO_KN;
+          const windKn = liveData.wind_speed_kn ?? 0;
+          const gustKn = liveData.wind_hi_kn ?? 0;
           const dir = liveData.wind_direction_deg ?? 0;
           rows += `<tr class="rideable day-sep" style="background:color-mix(in srgb, var(--pico-primary) 18%, transparent)">
             <td><strong>Now</strong><br><span style="font-size:0.7rem;color:var(--pico-muted-color)">live</span></td>

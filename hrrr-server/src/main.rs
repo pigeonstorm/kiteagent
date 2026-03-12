@@ -9,6 +9,7 @@ use hrrr_server::{db, rate_limit, routes, AppState};
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt()
+        .with_ansi(false)
         .with_env_filter(
             tracing_subscriber::EnvFilter::from_default_env()
                 .add_directive("info".parse()?),

@@ -1,6 +1,6 @@
 use axum::{
     extract::{Query, State},
-    http::StatusCode,
+    http::{header, StatusCode},
     response::{Html, IntoResponse, Json, Response},
     routing::{get, post},
     Router,
@@ -68,7 +68,13 @@ async fn dashboard(Query(q): Query<DashboardQuery>) -> Html<String> {
 
 async fn latest(State(state): State<Arc<AppState>>) -> ApiResult<Response> {
     match state.db.get_latest()? {
-        Some(r) => Ok(Json(r).into_response()),
+        Some(r) => {
+            let mut response = Json(r).into_response();
+            response
+                .headers_mut()
+                .insert(header::CACHE_CONTROL, "no-store".parse().unwrap());
+            Ok(response)
+        }
         None => Ok((StatusCode::NO_CONTENT, "no readings yet").into_response()),
     }
 }
@@ -116,7 +122,7 @@ async fn pull(
     match scrape_and_store(&state).await {
         Ok(r) => Ok(Json(serde_json::json!({
             "ok": true,
-            "wind_speed_mph": r.wind_speed_mph,
+            "wind_speed_kn": r.wind_speed_kn,
             "wind_direction": r.wind_direction,
             "scraped_at": r.scraped_at,
         })).into_response()),

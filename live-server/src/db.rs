@@ -26,36 +26,88 @@ impl Db {
     }
 
     fn init(&self) -> Result<()> {
-        self.conn.lock().unwrap().execute_batch(
+        const MPH_TO_KN: f64 = 0.868976;
+        let conn = self.conn.lock().unwrap();
+        conn.execute_batch(
             r#"
             PRAGMA journal_mode = WAL;
             PRAGMA foreign_keys = ON;
-
-            CREATE TABLE IF NOT EXISTS weather_readings (
-                id                   INTEGER PRIMARY KEY AUTOINCREMENT,
-                scraped_at           TEXT    NOT NULL,
-                station_time         TEXT,
-                wind_speed_mph       REAL,
-                wind_direction       TEXT,
-                wind_direction_deg   INTEGER,
-                wind_avg_mph         REAL,
-                wind_hi_mph          REAL,
-                wind_hi_dir_deg      INTEGER,
-                wind_rms_mph         REAL,
-                wind_vector_avg_mph  REAL,
-                wind_vector_dir_deg  INTEGER,
-                temperature_f        REAL,
-                humidity_pct         REAL,
-                barometer_inhg       REAL,
-                barometer_trend      REAL,
-                rain_in              REAL,
-                rain_rate_in_hr      REAL,
-                wind_chill_f         REAL,
-                heat_index_f         REAL,
-                dewpoint_f           REAL
-            );
             "#,
         )?;
+
+        // Check if old schema (mph) exists — table exists and has wind_speed_mph column
+        let has_old: bool = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('weather_readings') WHERE name='wind_speed_mph'",
+                [],
+                |r| r.get::<_, i64>(0),
+            )
+            .unwrap_or(0)
+            > 0;
+
+        if has_old {
+            conn.execute_batch(
+                r#"
+                CREATE TABLE weather_readings_new (
+                    id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+                    scraped_at           TEXT    NOT NULL,
+                    station_time         TEXT,
+                    wind_speed_kn        REAL,
+                    wind_direction       TEXT,
+                    wind_direction_deg   INTEGER,
+                    wind_avg_kn          REAL,
+                    wind_hi_kn           REAL,
+                    wind_hi_dir_deg      INTEGER,
+                    wind_rms_kn          REAL,
+                    wind_vector_avg_kn   REAL,
+                    wind_vector_dir_deg  INTEGER,
+                    temperature_f        REAL,
+                    humidity_pct         REAL,
+                    barometer_inhg       REAL,
+                    barometer_trend      REAL,
+                    rain_in              REAL,
+                    rain_rate_in_hr      REAL,
+                    wind_chill_f         REAL,
+                    heat_index_f         REAL,
+                    dewpoint_f           REAL
+                );
+                "#,
+            )?;
+            conn.execute(
+                "INSERT INTO weather_readings_new SELECT id, scraped_at, station_time, wind_speed_mph * ?1, wind_direction, wind_direction_deg, wind_avg_mph * ?1, wind_hi_mph * ?1, wind_hi_dir_deg, wind_rms_mph * ?1, wind_vector_avg_mph * ?1, wind_vector_dir_deg, temperature_f, humidity_pct, barometer_inhg, barometer_trend, rain_in, rain_rate_in_hr, wind_chill_f, heat_index_f, dewpoint_f FROM weather_readings",
+                params![MPH_TO_KN],
+            )?;
+            conn.execute("DROP TABLE weather_readings", [])?;
+            conn.execute("ALTER TABLE weather_readings_new RENAME TO weather_readings", [])?;
+        } else {
+            conn.execute_batch(
+                r#"
+                CREATE TABLE IF NOT EXISTS weather_readings (
+                    id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+                    scraped_at           TEXT    NOT NULL,
+                    station_time         TEXT,
+                    wind_speed_kn        REAL,
+                    wind_direction       TEXT,
+                    wind_direction_deg   INTEGER,
+                    wind_avg_kn          REAL,
+                    wind_hi_kn           REAL,
+                    wind_hi_dir_deg      INTEGER,
+                    wind_rms_kn          REAL,
+                    wind_vector_avg_kn   REAL,
+                    wind_vector_dir_deg  INTEGER,
+                    temperature_f        REAL,
+                    humidity_pct         REAL,
+                    barometer_inhg       REAL,
+                    barometer_trend      REAL,
+                    rain_in              REAL,
+                    rain_rate_in_hr      REAL,
+                    wind_chill_f         REAL,
+                    heat_index_f         REAL,
+                    dewpoint_f           REAL
+                );
+                "#,
+            )?;
+        }
         Ok(())
     }
 
@@ -64,9 +116,9 @@ impl Db {
         conn.execute(
             r#"INSERT INTO weather_readings (
                 scraped_at, station_time,
-                wind_speed_mph, wind_direction, wind_direction_deg,
-                wind_avg_mph, wind_hi_mph, wind_hi_dir_deg,
-                wind_rms_mph, wind_vector_avg_mph, wind_vector_dir_deg,
+                wind_speed_kn, wind_direction, wind_direction_deg,
+                wind_avg_kn, wind_hi_kn, wind_hi_dir_deg,
+                wind_rms_kn, wind_vector_avg_kn, wind_vector_dir_deg,
                 temperature_f, humidity_pct,
                 barometer_inhg, barometer_trend,
                 rain_in, rain_rate_in_hr,
@@ -77,14 +129,14 @@ impl Db {
             params![
                 r.scraped_at.to_rfc3339(),
                 r.station_time,
-                r.wind_speed_mph,
+                r.wind_speed_kn,
                 r.wind_direction,
                 r.wind_direction_deg,
-                r.wind_avg_mph,
-                r.wind_hi_mph,
+                r.wind_avg_kn,
+                r.wind_hi_kn,
                 r.wind_hi_dir_deg,
-                r.wind_rms_mph,
-                r.wind_vector_avg_mph,
+                r.wind_rms_kn,
+                r.wind_vector_avg_kn,
                 r.wind_vector_dir_deg,
                 r.temperature_f,
                 r.humidity_pct,
@@ -142,14 +194,14 @@ fn row_to_reading(row: &rusqlite::Row) -> rusqlite::Result<WeatherReading> {
         id: Some(row.get(0)?),
         scraped_at,
         station_time: row.get(2)?,
-        wind_speed_mph: row.get(3)?,
+        wind_speed_kn: row.get(3)?,
         wind_direction: row.get(4)?,
         wind_direction_deg: row.get(5)?,
-        wind_avg_mph: row.get(6)?,
-        wind_hi_mph: row.get(7)?,
+        wind_avg_kn: row.get(6)?,
+        wind_hi_kn: row.get(7)?,
         wind_hi_dir_deg: row.get(8)?,
-        wind_rms_mph: row.get(9)?,
-        wind_vector_avg_mph: row.get(10)?,
+        wind_rms_kn: row.get(9)?,
+        wind_vector_avg_kn: row.get(10)?,
         wind_vector_dir_deg: row.get(11)?,
         temperature_f: row.get(12)?,
         humidity_pct: row.get(13)?,

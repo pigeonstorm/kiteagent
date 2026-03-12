@@ -24,15 +24,15 @@ message WeatherReading {
     string scraped_at    = 2;   // RFC-3339 UTC
     string station_time  = 3;   // local time string from station page
 
-    // Wind
-    double wind_speed_mph      = 4;
+    // Wind (knots)
+    double wind_speed_kn       = 4;
     string wind_direction      = 5;   // compass abbrev, e.g. "SSE"
     int32  wind_direction_deg  = 6;
-    double wind_avg_mph        = 7;
-    double wind_hi_mph         = 8;
+    double wind_avg_kn         = 7;
+    double wind_hi_kn          = 8;
     int32  wind_hi_dir_deg     = 9;
-    double wind_rms_mph        = 10;
-    double wind_vector_avg_mph = 11;
+    double wind_rms_kn         = 10;
+    double wind_vector_avg_kn  = 11;
     int32  wind_vector_dir_deg = 12;
 
     // Atmosphere

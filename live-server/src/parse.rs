@@ -13,6 +13,8 @@ use std::collections::HashMap;
 
 use crate::WeatherReading;
 
+const MPH_TO_KN: f64 = 0.868976;
+
 // ── card data collected from the DOM ─────────────────────────────────────────
 
 struct Card {
@@ -213,9 +215,9 @@ pub fn scrape_html(html: &str) -> Result<WeatherReading> {
         .map(|(_, v)| v)
         .context("missing Wind card")?;
 
-    // weatherdata: "13 mph SSE" — after whitespace normalisation
+    // weatherdata: "13 mph SSE" — after whitespace normalisation (ARL page uses mph)
     let wd_text = &wind_card.weatherdata;
-    let wind_speed_mph = first_f64(wd_text).unwrap_or(0.0);
+    let wind_speed_kn = first_f64(wd_text).unwrap_or(0.0) * MPH_TO_KN;
     let wind_direction = Regex::new(r"\b([NSEW]{1,3})\b")
         .ok()
         .and_then(|re| re.find(wd_text))
@@ -224,33 +226,33 @@ pub fn scrape_html(html: &str) -> Result<WeatherReading> {
     // Degrees come from "wi-wind from-NNN-deg" icons: [current, hi, vector_avg]
     let wind_direction_deg = wind_card.wind_deg_icons.first().copied().unwrap_or(0);
 
-    let wind_avg_mph = td_value_after(&wind_card.tds, "Avg")
+    let wind_avg_kn = td_value_after(&wind_card.tds, "Avg")
         .and_then(first_f64)
-        .unwrap_or(0.0);
-    let wind_hi_mph = td_value_after(&wind_card.tds, "Hi")
+        .unwrap_or(0.0) * MPH_TO_KN;
+    let wind_hi_kn = td_value_after(&wind_card.tds, "Hi")
         .and_then(first_f64)
-        .unwrap_or(0.0);
+        .unwrap_or(0.0) * MPH_TO_KN;
     let wind_hi_dir_deg = wind_card.wind_deg_icons.get(1).copied().unwrap_or(0);
-    let wind_rms_mph = td_value_after(&wind_card.tds, "RMS")
+    let wind_rms_kn = td_value_after(&wind_card.tds, "RMS")
         .and_then(first_f64)
-        .unwrap_or(0.0);
-    let wind_vector_avg_mph = td_value_after(&wind_card.tds, "Vector Avg")
+        .unwrap_or(0.0) * MPH_TO_KN;
+    let wind_vector_avg_kn = td_value_after(&wind_card.tds, "Vector Avg")
         .and_then(first_f64)
-        .unwrap_or(0.0);
+        .unwrap_or(0.0) * MPH_TO_KN;
     let wind_vector_dir_deg = wind_card.wind_deg_icons.get(2).copied().unwrap_or(0);
 
     Ok(WeatherReading {
         id: None,
         scraped_at: Utc::now(),
         station_time,
-        wind_speed_mph,
+        wind_speed_kn,
         wind_direction,
         wind_direction_deg,
-        wind_avg_mph,
-        wind_hi_mph,
+        wind_avg_kn,
+        wind_hi_kn,
         wind_hi_dir_deg,
-        wind_rms_mph,
-        wind_vector_avg_mph,
+        wind_rms_kn,
+        wind_vector_avg_kn,
         wind_vector_dir_deg,
         temperature_f,
         humidity_pct,
@@ -310,14 +312,14 @@ mod tests {
         </body></html>
         "#;
         let r = scrape_html(html).unwrap();
-        assert_eq!(r.wind_speed_mph, 10.0);
+        assert!((r.wind_speed_kn - 8.69).abs() < 0.1); // 10 mph ≈ 8.69 kts
         assert_eq!(r.wind_direction, "S");
         assert_eq!(r.wind_direction_deg, 180);
-        assert_eq!(r.wind_avg_mph, 11.0);
-        assert_eq!(r.wind_hi_mph, 35.0);
+        assert!((r.wind_avg_kn - 9.56).abs() < 0.1);  // 11 mph ≈ 9.56 kts
+        assert!((r.wind_hi_kn - 30.41).abs() < 0.1); // 35 mph ≈ 30.41 kts
         assert_eq!(r.wind_hi_dir_deg, 160);
-        assert_eq!(r.wind_rms_mph, 11.0);
-        assert_eq!(r.wind_vector_avg_mph, 10.0);
+        assert!((r.wind_rms_kn - 9.56).abs() < 0.1);
+        assert!((r.wind_vector_avg_kn - 8.69).abs() < 0.1);
         assert_eq!(r.wind_vector_dir_deg, 170);
     }
 }

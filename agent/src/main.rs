@@ -26,6 +26,7 @@ fn init_tracing(log_dir: &str) -> Result<()> {
         .boxed();
     let stdout_layer = tracing_subscriber::fmt::layer()
         .with_writer(std::io::stdout)
+        .with_ansi(false)
         .with_target(true)
         .boxed();
     tracing_subscriber::registry()

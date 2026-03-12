@@ -13,14 +13,14 @@ fn seed_one_reading(state: &AppState) {
         id: None,
         scraped_at: Utc::now(),
         station_time: "03/02/2026 11:40:00 PM".into(),
-        wind_speed_mph: 10.0,
+        wind_speed_kn: 8.69,
         wind_direction: "S".into(),
         wind_direction_deg: 180,
-        wind_avg_mph: 11.0,
-        wind_hi_mph: 35.0,
+        wind_avg_kn: 9.56,
+        wind_hi_kn: 30.41,
         wind_hi_dir_deg: 160,
-        wind_rms_mph: 11.0,
-        wind_vector_avg_mph: 10.0,
+        wind_rms_kn: 9.56,
+        wind_vector_avg_kn: 8.69,
         wind_vector_dir_deg: 170,
         temperature_f: 68.2,
         humidity_pct: 85.0,
@@ -75,7 +75,7 @@ async fn api_latest_returns_json_when_data_exists() {
     resp.assert_status_ok();
 
     let body: serde_json::Value = resp.json();
-    assert_eq!(body["wind_speed_mph"].as_f64().unwrap(), 10.0);
+    assert_eq!(body["wind_speed_kn"].as_f64().unwrap(), 8.69);
     assert_eq!(body["wind_direction"], "S");
     assert_eq!(body["temperature_f"].as_f64().unwrap(), 68.2);
 }
@@ -95,7 +95,7 @@ async fn api_history_returns_json() {
     let body: serde_json::Value = resp.json();
     assert!(body["readings"].is_array());
     assert_eq!(body["count"].as_u64().unwrap(), 1);
-    assert_eq!(body["readings"][0]["wind_speed_mph"].as_f64().unwrap(), 10.0);
+    assert_eq!(body["readings"][0]["wind_speed_kn"].as_f64().unwrap(), 8.69);
 }
 
 #[tokio::test]

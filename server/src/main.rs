@@ -12,6 +12,7 @@ const VAPID_KEYS_PATH: &str = "vapid_keys.json";
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt()
+        .with_ansi(false)
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env().add_directive("info".parse()?))
         .init();
 

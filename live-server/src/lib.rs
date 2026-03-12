@@ -16,15 +16,15 @@ pub struct WeatherReading {
     /// Local time string printed on the station page.
     pub station_time: String,
 
-    // Wind
-    pub wind_speed_mph: f64,
+    // Wind (knots)
+    pub wind_speed_kn: f64,
     pub wind_direction: String,
     pub wind_direction_deg: i32,
-    pub wind_avg_mph: f64,
-    pub wind_hi_mph: f64,
+    pub wind_avg_kn: f64,
+    pub wind_hi_kn: f64,
     pub wind_hi_dir_deg: i32,
-    pub wind_rms_mph: f64,
-    pub wind_vector_avg_mph: f64,
+    pub wind_rms_kn: f64,
+    pub wind_vector_avg_kn: f64,
     pub wind_vector_dir_deg: i32,
 
     // Atmosphere
@@ -53,7 +53,7 @@ pub async fn scrape_loop(state: Arc<AppState>, interval_secs: u64) {
         interval.tick().await;
         match scrape_and_store(&state).await {
             Ok(r) => info!(
-                wind_mph = r.wind_speed_mph,
+                wind_kn = r.wind_speed_kn,
                 dir = %r.wind_direction,
                 "stored reading"
             ),
@@ -66,6 +66,8 @@ pub async fn scrape_and_store(state: &AppState) -> anyhow::Result<WeatherReading
     let html = state
         .http
         .get(STATION_URL)
+        .header("Cache-Control", "no-cache, no-store, must-revalidate")
+        .header("Pragma", "no-cache")
         .send()
         .await?
         .text()

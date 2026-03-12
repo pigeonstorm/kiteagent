@@ -8,8 +8,6 @@ use tracing::{debug, info};
 
 use crate::notify::send_live_wind_alert;
 
-const MPH_TO_KN: f64 = 0.868976;
-
 fn wind_in_bad_direction(dir_deg: f64, bad_directions: &[Vec<f64>]) -> bool {
     for range in bad_directions {
         if range.len() >= 2 {
@@ -30,13 +28,13 @@ fn wind_in_bad_direction(dir_deg: f64, bad_directions: &[Vec<f64>]) -> bool {
 }
 
 fn wind_meets_criteria(
-    wind_speed_mph: f64,
+    wind_speed_kn: f64,
     wind_dir_deg: i32,
-    wind_hi_mph: f64,
+    wind_hi_kn: f64,
     cfg: &Config,
 ) -> bool {
-    let wind_kn = wind_speed_mph * MPH_TO_KN;
-    let gust_kn = wind_hi_mph * MPH_TO_KN;
+    let wind_kn = wind_speed_kn;
+    let gust_kn = wind_hi_kn;
     let gust_ratio = if wind_kn > 0.0 {
         gust_kn / wind_kn
     } else {
@@ -83,14 +81,12 @@ pub async fn check_live_wind(
         .map_err(|e| anyhow::anyhow!("GetLatest failed: {}", e))?;
 
     let r = resp.into_inner();
-    let wind_speed_mph = r.wind_speed_mph;
+    let wind_kn = r.wind_speed_kn;
     let wind_dir_deg = r.wind_direction_deg;
     let wind_dir = r.wind_direction;
-    let wind_hi_mph = r.wind_hi_mph;
+    let gust_kn = r.wind_hi_kn;
 
-    let wind_kn = wind_speed_mph * MPH_TO_KN;
-
-    if !wind_meets_criteria(wind_speed_mph, wind_dir_deg, wind_hi_mph, cfg) {
+    if !wind_meets_criteria(wind_kn, wind_dir_deg, gust_kn, cfg) {
         debug!(
             wind_kn = wind_kn,
             dir = %wind_dir,
@@ -109,7 +105,7 @@ pub async fn check_live_wind(
         wind_kn,
         wind_dir_deg as f64,
         &wind_dir,
-        r.wind_hi_mph * MPH_TO_KN,
+        gust_kn,
         cfg,
         db,
         client,

@@ -24,6 +24,7 @@ def spawn_all_dev
   pids << spawn("cargo run -p kiteagent-server", out: ["#{LOG_DIR}/server.log", "a"], err: [:child, :out])
   pids << spawn("cargo run -p hrrr-server", out: ["#{LOG_DIR}/hrrr.log", "a"], err: [:child, :out])
   pids << spawn("cargo run -p live-server", out: ["#{LOG_DIR}/live.log", "a"], err: [:child, :out])
+  pids << spawn("cargo run -p kiteagent-agent -- #{CONFIG}", out: ["#{LOG_DIR}/agent.log", "a"], err: [:child, :out])
   pids
 end
 
@@ -33,6 +34,7 @@ def spawn_all_prod
   pids << spawn(SERVER_BIN, out: ["#{LOG_DIR}/server.log", "a"], err: [:child, :out])
   pids << spawn(HRRR_BIN, out: ["#{LOG_DIR}/hrrr.log", "a"], err: [:child, :out])
   pids << spawn(LIVE_BIN, out: ["#{LOG_DIR}/live.log", "a"], err: [:child, :out])
+  pids << spawn("#{AGENT_BIN} #{CONFIG}", out: ["#{LOG_DIR}/agent.log", "a"], err: [:child, :out])
   pids
 end
 
@@ -57,7 +59,7 @@ HELP_TEXT = <<~HELP
 
   dev:
     rake dev:build   Build debug (cargo build)
-    rake dev:run     Run all: server, hrrr, live (bg) + agent (fg)
+    rake dev:run     Run all: server, hrrr, live, agent (all in bg)
     rake dev:watch   Auto-reload server + agent, opens browser
 
   prod:
@@ -75,8 +77,9 @@ HELP_TEXT = <<~HELP
 
     rake run         Alias for dev:run
     rake build       Release build
-    rake hrrr:dev   HRRR with cargo-watch
+    rake hrrr:dev    HRRR with cargo-watch
     rake live:dev    Live-server with cargo-watch
+    rake agent:dev   Agent with cargo-watch
 
   LIST TASKS
 
@@ -100,12 +103,11 @@ namespace :dev do
     sh "cargo build"
   end
 
-  desc "Run all services (server, hrrr, live in bg; agent in fg)"
+  desc "Run all services (server, hrrr, live, agent in bg)"
   task run: [:build] do
     pids = spawn_all_dev
     at_exit { kill_pids(pids) }
-    sleep 4
-    sh "cargo run -p kiteagent-agent -- #{CONFIG}"
+    sleep
   ensure
     kill_pids(pids)
   end
@@ -136,8 +138,7 @@ namespace :prod do
   task run: [:build] do
     pids = spawn_all_prod
     at_exit { kill_pids(pids) }
-    sleep 2
-    sh "#{AGENT_BIN} #{CONFIG}"
+    sleep
   ensure
     kill_pids(pids)
   end
@@ -183,4 +184,9 @@ end
 desc "Dev mode for live-server with auto-reload"
 task "live:dev" do
   sh "cargo watch -w live-server/src -w live-server/static -x 'run -p live-server'"
+end
+
+desc "Dev mode for agent with auto-reload"
+task "agent:dev" do
+  sh "cargo watch -w agent/src -w shared/src -x 'run -p kiteagent-agent -- #{CONFIG}'"
 end

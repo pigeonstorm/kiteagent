@@ -81,6 +81,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/logo-32.png", get(serve_logo_32))
         .route("/logo-180.png", get(serve_logo_180))
         .route("/subscribe", post(subscribe))
+        .route("/unsubscribe", post(unsubscribe))
         .route("/push", post(push))
         .route("/test-push", post(test_push))
         .route("/status", get(status))
@@ -234,6 +235,17 @@ async fn subscribe(
         tracing::warn!(%e, "failed to send welcome notification");
     }
 
+    (StatusCode::OK, "OK").into_response()
+}
+
+async fn unsubscribe(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<SubscribePayload>,
+) -> impl IntoResponse {
+    if let Err(e) = state.db.delete_push_subscription_by_endpoint(&payload.endpoint) {
+        tracing::error!(%e, "failed to delete subscription");
+        return (StatusCode::INTERNAL_SERVER_ERROR, "failed to delete subscription").into_response();
+    }
     (StatusCode::OK, "OK").into_response()
 }
 
@@ -398,7 +410,10 @@ async fn proxy_live(State(state): State<Arc<AppState>>) -> impl IntoResponse {
                         .into_response()
                 }
             };
-            let headers = [(header::CONTENT_TYPE, "application/json")];
+            let headers = [
+                (header::CONTENT_TYPE, "application/json"),
+                (header::CACHE_CONTROL, "no-store"),
+            ];
             (status, headers, body).into_response()
         }
         Err(e) => (
