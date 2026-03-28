@@ -30,7 +30,7 @@ push_secret = "test-secret"
 
 [server]
 bind = "0.0.0.0:8080"
-vapid_subject = "mailto:test@test.com"
+vapid_subject = "mailto:victor@pigeonstorm.com"
 
 [schedule]
 fetch_interval_min = 60

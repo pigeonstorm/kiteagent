@@ -131,7 +131,8 @@ mod tests {
             },
             server: ServerConfig {
                 bind: "0.0.0.0:8080".into(),
-                vapid_subject: "mailto:test@test.com".into(),
+                vapid_subject: "mailto:victor@pigeonstorm.com".into(),
+                hrrr_url: None,
             },
             schedule: ScheduleConfig {
                 fetch_interval_min: 60,

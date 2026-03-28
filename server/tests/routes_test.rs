@@ -1,9 +1,12 @@
 //! Integration tests for server routes.
 
+use std::sync::Arc;
+
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
-use kiteagent_shared::Db;
+use kiteagent_shared::{Config, Db};
 use tower::ServiceExt;
+use web_push::WebPushClient;
 
 use kiteagent_server::routes::{router, AppState};
 use kiteagent_server::vapid;
@@ -12,20 +15,67 @@ fn test_db() -> Db {
     Db::open_in_memory().unwrap()
 }
 
+fn test_config() -> Config {
+    Config::parse(
+        r#"
+[location]
+name = "t"
+lat = 0.0
+lon = 0.0
+[user]
+name = "u"
+weight_kg = 70
+[gear]
+available = []
+[notification]
+method = "webpush"
+server_url = "http://localhost:8080"
+push_secret = "secret"
+[server]
+bind = "127.0.0.1:8080"
+vapid_subject = "mailto:victor@pigeonstorm.com"
+[schedule]
+fetch_interval_min = 60
+morning_digest_hour = 7
+opportunity_lookahead_hours = 4
+notification_cooldown_hours = 4
+max_notifications_per_day = 3
+[thresholds]
+min_wind_kn = 8.0
+max_wind_kn = 40.0
+max_gust_ratio = 1.6
+min_session_hours = 2
+[storage]
+db_path = ":memory:"
+log_dir = "logs"
+log_days = 30
+"#,
+    )
+    .unwrap()
+}
+
 fn test_vapid() -> vapid::VapidKeys {
     vapid::VapidKeys {
         public_key_pem: String::new(),
         private_key_pem: include_str!("../test_keys/private.pem").to_string(),
+        subject: "mailto:victor@pigeonstorm.com".to_string(),
     }
+}
+
+fn test_state() -> Arc<AppState> {
+    Arc::new(AppState {
+        db: test_db(),
+        vapid: test_vapid(),
+        push_secret: "secret".to_string(),
+        config: test_config(),
+        http: reqwest::Client::new(),
+        web_push: WebPushClient::new().expect("WebPushClient"),
+    })
 }
 
 #[tokio::test]
 async fn status_returns_200() {
-    let state = std::sync::Arc::new(AppState {
-        db: test_db(),
-        vapid: test_vapid(),
-        push_secret: "secret".to_string(),
-    });
+    let state = test_state();
     let app = router(state);
     let res = app
         .oneshot(Request::builder().uri("/status").body(Body::empty()).unwrap())
@@ -36,11 +86,7 @@ async fn status_returns_200() {
 
 #[tokio::test]
 async fn push_without_bearer_returns_401() {
-    let state = std::sync::Arc::new(AppState {
-        db: test_db(),
-        vapid: test_vapid(),
-        push_secret: "secret".to_string(),
-    });
+    let state = test_state();
     let app = router(state);
     let body = serde_json::json!({"title": "Test", "body": "Body"});
     let res = app

@@ -1,6 +1,9 @@
 use anyhow::{Context, Result};
 use std::path::Path;
-use web_push::*;
+use web_push::{
+    ContentEncoding, SubscriptionInfo, Urgency, VapidSignatureBuilder, WebPushClient, WebPushError,
+    WebPushMessage, WebPushMessageBuilder,
+};
 
 #[derive(Clone)]
 pub struct VapidKeys {
@@ -71,14 +74,14 @@ impl VapidKeys {
     }
 }
 
-pub async fn send_push(
+/// Builds an encrypted Web Push message (VAPID + payload). Used by [`send_push`] and tests.
+pub fn build_push_message(
     endpoint: &str,
     p256dh: &str,
     auth: &str,
     payload: &str,
     keys: &VapidKeys,
-    client: &WebPushClient,
-) -> Result<(), web_push::WebPushError> {
+) -> Result<WebPushMessage, WebPushError> {
     let subscription_info = SubscriptionInfo::new(endpoint, p256dh, auth);
     let mut sig_builder = VapidSignatureBuilder::from_pem(
         std::io::Cursor::new(keys.private_key_pem.as_bytes()),
@@ -90,5 +93,57 @@ pub async fn send_push(
     let mut builder = WebPushMessageBuilder::new(&subscription_info)?;
     builder.set_payload(ContentEncoding::Aes128Gcm, payload.as_bytes());
     builder.set_vapid_signature(sig);
-    client.send(builder.build()?).await
+    // Apple: "To attempt to deliver the notification immediately, specify `high`" for Urgency.
+    // Without this, APNs may defer delivery for power saving — often seen as missing iPhone alerts.
+    builder.set_urgency(Urgency::High);
+    builder.build()
+}
+
+pub async fn send_push(
+    endpoint: &str,
+    p256dh: &str,
+    auth: &str,
+    payload: &str,
+    keys: &VapidKeys,
+    client: &WebPushClient,
+) -> Result<(), WebPushError> {
+    let message = build_push_message(endpoint, p256dh, auth, payload, keys)?;
+    client.send(message).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn fixture_keys() -> VapidKeys {
+        VapidKeys {
+            public_key_pem: String::new(),
+            private_key_pem: include_str!("../test_keys/private.pem").to_string(),
+            subject: "mailto:test@example.com".to_string(),
+        }
+    }
+
+    /// Minimal valid-looking subscription (from web-push crate tests) so encryption succeeds.
+    fn fixture_subscription() -> (String, String, String) {
+        (
+            "https://fcm.googleapis.com/fcm/send/eKClHsXFm9E:APA91bH2x3gNOMv4dF1lQfCgIfOet8EngqKCAUS5DncLOd5hzfSUxcjigIjw9ws-bqa-KmohqiTOcgepAIVO03N39dQfkEkopubML_m3fyvF03pV9_JCB7SxpUjcFmBSVhCaWS6m8l7x".to_string(),
+            "BGa4N1PI79lboMR_YrwCiCsgp35DRvedt7opHcf0yM3iOBTSoQYqQLwWxAfRKE6tsDnReWmhsImkhDF_DBdkNSU".to_string(),
+            "EvcWjEgzr4rbvhfi3yds0A".to_string(),
+        )
+    }
+
+    #[test]
+    fn push_message_sets_urgency_high_for_apple_immediate_delivery() {
+        let keys = fixture_keys();
+        let (endpoint, p256dh, auth) = fixture_subscription();
+        let msg = build_push_message(
+            &endpoint,
+            &p256dh,
+            &auth,
+            r#"{"title":"t","body":"b"}"#,
+            &keys,
+        )
+        .expect("build_push_message");
+        assert_eq!(msg.urgency, Some(Urgency::High));
+    }
 }
