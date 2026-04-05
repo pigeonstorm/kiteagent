@@ -97,6 +97,12 @@ end
 HELP_TEXT = <<~HELP
   Kiteagent Rakefile — build and run services
 
+  PREREQUISITES (for rake kite-gear / dashboard WASM):
+    wasm-pack          brew install wasm-pack   OR   cargo install wasm-pack
+    rustup target      rustup target add wasm32-unknown-unknown
+    (rake kite-gear prepends ~/.cargo/bin when it exists so wasm-pack uses rustup
+     if Homebrew Rust is also on PATH.)
+
   SERVICES (ports):
     server  8080  Push server, WebPush, dashboard
     hrrr    8081  HRRR forecast API (NOAA NOMADS)
@@ -116,7 +122,7 @@ HELP_TEXT = <<~HELP
 
   SINGLE-SERVICE
 
-    rake server      Start push server only
+    rake server      Start push server only (runs kite-gear / wasm first)
     rake agent       Start agent only (needs server, hrrr running)
     rake hrrr        Start HRRR API only
     rake live        Start live-server only
@@ -163,7 +169,7 @@ namespace :dev do
   end
 
   desc "Run all services (server, hrrr, live, agent in bg)"
-  task run: [:build] do
+  task run: [:build, :"kite-gear"] do
     dev_initial_pulls
     pids = spawn_all_dev
     dev_print_service_urls
@@ -174,7 +180,7 @@ namespace :dev do
   end
 
   desc "Dev mode: auto-reload server + agent (original dev flow)"
-  task :watch do
+  task watch: :"kite-gear" do
     server_pid = spawn("cargo watch -w server/src -w shared/src -w server/static -x 'run -p kiteagent-server'")
     at_exit { Process.kill("TERM", server_pid) rescue nil }
     sleep 6
@@ -190,8 +196,8 @@ end
 # ═══════════════════════════════════════════════════════════════════════════════
 
 namespace :prod do
-  desc "Build all crates (release)"
-  task :build do
+  desc "Build all crates (release) and kite-gear WASM for the server UI"
+  task build: :"kite-gear" do
     sh "cargo build --release"
   end
 
@@ -209,8 +215,8 @@ end
 # Single-service tasks (convenience)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-desc "Build release binaries"
-task :build do
+desc "Build release binaries (and kite-gear WASM for the server UI)"
+task build: :"kite-gear" do
   sh "cargo build --release"
 end
 
@@ -234,7 +240,7 @@ desc "Run all services (dev mode). Use: rake dev:run"
 task run: "dev:run"
 
 desc "Start the push server (foreground, dev mode)"
-task :server do
+task server: :"kite-gear" do
   sh "cargo run -p kiteagent-server"
 end
 
