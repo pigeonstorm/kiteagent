@@ -58,21 +58,35 @@
       color: var(--pico-muted-color); font-weight: 600; font-size: 0.72rem;
     }
     #forecast-table td { padding: 0.2rem 0.35rem; }
+    #forecast-table th.forecast-col-ratio,
+    #forecast-table td.forecast-ratio-cell {
+      width: 2.35rem;
+      max-width: 2.35rem;
+      padding-inline: 0.12rem;
+      text-align: center;
+      box-sizing: border-box;
+    }
+    #forecast-table th.forecast-col-ratio {
+      font-size: 0.62rem;
+      line-height: 1.15;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+    #forecast-table td.forecast-ratio-cell {
+      font-size: 0.8rem;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
     #forecast-table tr.day-sep td {
       border-top: 1px solid var(--pico-muted-border-color);
       padding-top: 0.5rem;
     }
-    #forecast-table tr.calm td:first-child {
-      border-left: 2px solid rgba(148, 163, 184, 0.35);
-    }
-    #forecast-table tr.windy td:first-child {
-      border-left: 2px solid #2db8d4;
+    /* Left accent: base hue from row class; brightness mixes white by gust/avg ratio */
+    #forecast-table tr.forecast-row td:first-child {
+      border-left: 2px solid color-mix(in srgb, var(--row-accent-base), white var(--gust-bright, 0%));
     }
     #forecast-table tr.windy {
       background: rgba(45, 184, 212, 0.08);
-    }
-    #forecast-table tr.rideable td:first-child {
-      border-left: 2px solid #0d7a94;
     }
     #forecast-table tr.rideable {
       background: rgba(13, 122, 148, 0.18);
@@ -88,7 +102,27 @@
     #forecast-info table { margin-top: 0; margin-bottom: 0; }
     article:has(#forecast-info) { padding-bottom: 0.25rem; }
 
-    small.version { display: block; text-align: center; color: var(--pico-muted-color); font-size: 0.7rem; margin-top: 1rem; }
+    .version-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+      margin-top: 1rem;
+      font-size: 0.7rem;
+    }
+    .version-row .version {
+      margin: 0;
+      color: var(--pico-muted-color);
+      text-align: left;
+    }
+    .version-row .doc-link {
+      flex-shrink: 0;
+      color: var(--pico-primary);
+      text-decoration: none;
+    }
+    .version-row .doc-link:hover {
+      text-decoration: underline;
+    }
   </style>
 </head>
 <body>
@@ -114,6 +148,9 @@
       48-Hour Forecast
       <button id="pull-btn" class="outline" style="float:right;padding:0.2rem 0.7rem;font-size:0.75rem;margin:0;display:none">Pull now</button>
     </header>
+    <p id="forecast-admin-hint" class="fetch-meta" style="display:none;margin-top:0.25rem">
+      Manual refresh: add <code>?user=…</code> (same as <code>config.toml</code> → <code>user.name</code>), then use <strong>Pull now</strong> (loads HRRR into this app’s DB).
+    </p>
     <div id="forecast-info"><span aria-busy="true">Loading…</span></div>
   </article>
 
@@ -127,7 +164,10 @@
     <button id="subscribed-unsubscribe" class="secondary outline" style="font-size:0.8rem">Unsubscribe</button>
   </div>
 
-  <small class="version">KiteAgent 1.0.0 · Windy Point, Lake Travis</small>
+  <div class="version-row">
+    <small class="version">KiteAgent 1.0.1 · Windy Point, Lake Travis</small>
+    <a class="doc-link" href="/doc">/doc</a>
+  </div>
 
   <script>
     const VAPID_PUBLIC_KEY = '__VAPID_PUBLIC_KEY__';
@@ -337,6 +377,69 @@
       return new Date(iso).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
     }
 
+    /** Spot timezone (matches agent / Open-Meteo request). HRRR JSON uses UTC wall times without a Z suffix. */
+    const SPOT_TZ = 'America/Chicago';
+
+    function parseForecastInstant(iso) {
+      if (!iso) return new Date(NaN);
+      const s = String(iso).trim();
+      if (/[zZ]$/.test(s) || /[+-]\d{2}:?\d{2}$/.test(s)) return new Date(s);
+      return new Date(s + 'Z');
+    }
+
+    function hourInSpot(iso) {
+      const d = parseForecastInstant(iso);
+      const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: SPOT_TZ,
+        hour: 'numeric',
+        hour12: false,
+      }).formatToParts(d);
+      const h = parts.find((p) => p.type === 'hour');
+      return h ? parseInt(h.value, 10) : NaN;
+    }
+
+    function fmtTimeSpot(iso) {
+      return parseForecastInstant(iso).toLocaleTimeString([], {
+        timeZone: SPOT_TZ,
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    }
+
+    function fmtDaySpot(iso) {
+      return parseForecastInstant(iso).toLocaleDateString([], {
+        timeZone: SPOT_TZ,
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+      });
+    }
+
+    /**
+     * Wind/gust column: gust ÷ wind, one decimal (e.g. 1.5).
+     * --gust-bright whitens the left border more when gusts are punchy (scale up to 2.25:1).
+     */
+    function gustAccent(gustKn, windKn) {
+      const minWind = 0.75;
+      if (windKn < minWind) return { windGustRatioLabel: '—', bright: '0%' };
+      const ratio = gustKn / windKn;
+      if (!Number.isFinite(ratio) || ratio > 8) return { windGustRatioLabel: '—', bright: '0%' };
+      const windGustRatioLabel = ratio.toFixed(1);
+      const clamped = Math.min(2.25, Math.max(1, ratio));
+      const t = (clamped - 1) / 1.25;
+      return { windGustRatioLabel, bright: `${Math.round(t * 58)}%` };
+    }
+
+    function forecastRowAttrs(accentClass, gustKn, windKn) {
+      const { windGustRatioLabel, bright } = gustAccent(gustKn, windKn);
+      const bases = { calm: '#64748b', windy: '#2db8d4', rideable: '#0d7a94' };
+      const base = bases[accentClass] || bases.calm;
+      return {
+        windGustRatioLabel,
+        trStyle: `--row-accent-base:${base};--gust-bright:${bright};`,
+      };
+    }
+
     function infoRow(label, value) {
       return `<div class="info-row"><span>${label}</span><span>${value}</span></div>`;
     }
@@ -360,7 +463,8 @@
           const f = d.last_forecast_fetch;
           html += infoRow('Forecast', `${reltime(f.at)} ${f.ok ? '✓' : '✗'}`);
         }
-        html += infoRow('Live', liveRes?.scraped_at ? `${reltime(liveRes.scraped_at)} - ARL:UT Lake Travis` : '—');
+        const stationUrl = 'https://wwwext.arlut.utexas.edu/weather/lake/';
+        html += infoRow('Live', liveRes?.scraped_at ? `${reltime(liveRes.scraped_at)} - <a href="${stationUrl}" rel="noopener noreferrer" target="_blank" style="color:var(--pico-primary)">ARL:UT Lake Travis</a>` : '—');
         if (d.last_analysis) {
           const a = d.last_analysis;
           html += infoRow('Last analysis', reltime(a.at));
@@ -414,16 +518,27 @@
         }
 
         const now = new Date();
-        // Keep only hours from ~1h ago onwards (up to 48h).
         const cutoff = new Date(now.getTime() - 3600_000);
-        const hours = (d.hours || []).filter(h => {
-          const t = new Date(h.time);
-          const hour = t.getHours();
-          return t >= cutoff && hour >= 8 && hour <= 20;
-        }).slice(0, 48);
+        const all = d.hours || [];
+        const future = all.filter((h) => parseForecastInstant(h.time) >= cutoff);
+        // Daylight at the spot (not browser local): HRRR times are UTC; filter uses America/Chicago.
+        const hours = future
+          .filter((h) => {
+            const hc = hourInSpot(h.time);
+            return hc >= 8 && hc <= 20;
+          })
+          .slice(0, 48);
 
         if (!hours.length) {
-          el.innerHTML = '<span style="color:var(--pico-muted-color)">No forecast hours available</span>';
+          let msg = 'No forecast hours available';
+          if (!all.length) msg = 'No forecast hours in response';
+          else if (!future.length)
+            msg =
+              'Forecast is stale (all hours are in the past). Use Pull now (with ?user=…) or wait for the agent to fetch.';
+          else
+            msg =
+              'No 8am–8pm Central slots in the next window (try again later or use Pull now).';
+          el.innerHTML = `<span style="color:var(--pico-muted-color)">${msg}</span>`;
           return;
         }
 
@@ -432,10 +547,11 @@
           const windKn = liveData.wind_speed_kn ?? 0;
           const gustKn = liveData.wind_hi_kn ?? 0;
           const dir = liveData.wind_direction_deg ?? 0;
-          rows += `<tr class="rideable day-sep" style="background:color-mix(in srgb, var(--pico-primary) 18%, transparent)">
+          const liveStripe = forecastRowAttrs('rideable', gustKn, windKn);
+          rows += `<tr class="forecast-row rideable day-sep" style="background:color-mix(in srgb, var(--pico-primary) 18%, transparent);${liveStripe.trStyle}">
             <td><strong>Now</strong><br><span style="font-size:0.7rem;color:var(--pico-muted-color)">live</span></td>
             <td><span class="wind-val">${Math.round(windKn)}</span> <span class="gust-val">↑${Math.round(gustKn)}</span> kts</td>
-            <td><span style="color:var(--pico-primary)">◉</span></td>
+            <td class="forecast-ratio-cell">${liveStripe.windGustRatioLabel}</td>
             <td>${bearing(dir)}</td>
             <td>${liveData.temperature_f != null ? Math.round(liveData.temperature_f) + '°F' : '—'}</td>
             <td>◉</td>
@@ -444,16 +560,17 @@
         }
         let lastDay = '';
         for (const h of hours) {
-          const day = fmtDay(h.time);
+          const day = fmtDaySpot(h.time);
           const isSep = day !== lastDay;
           lastDay = day;
 
-          const rideClass = h.rideable ? ' rideable' : (h.wind_kn >= 8 ? ' windy' : ' calm');
+          const rideClass = h.rideable ? 'rideable' : (h.wind_kn >= 8 ? 'windy' : 'calm');
           const sepClass = isSep ? ' day-sep' : '';
-          rows += `<tr class="${rideClass}${sepClass}">
-            <td>${isSep ? `<strong>${day}</strong><br>` : ''}${fmtTime(h.time)}</td>
+          const stripe = forecastRowAttrs(rideClass, h.gusts_kn, h.wind_kn);
+          rows += `<tr class="forecast-row ${rideClass}${sepClass}" style="${stripe.trStyle}">
+            <td>${isSep ? `<strong>${day}</strong><br>` : ''}${fmtTimeSpot(h.time)}</td>
             <td><span class="wind-val">${Math.round(h.wind_kn)}</span> <span class="gust-val">↑${Math.round(h.gusts_kn)}</span> kts</td>
-            <td>—</td>
+            <td class="forecast-ratio-cell">${stripe.windGustRatioLabel}</td>
             <td>${bearing(h.dir_deg)}</td>
             <td>${h.temp_c != null ? Math.round(h.temp_c) + '°C' : '—'}</td>
             <td>${wmoIcon(h.wmo)}</td>
@@ -464,7 +581,7 @@
         const table = `
           <table id="forecast-table">
             <thead><tr>
-              <th>Time</th><th>Wind / Gusts</th><th>Live</th><th>Dir</th><th>Temp</th><th>Cond</th><th>Gear</th>
+              <th>Time</th><th>Wind / Gusts</th><th class="forecast-col-ratio">Wind/Gust</th><th>Dir</th><th>Temp</th><th>Cond</th><th>Gear</th>
             </tr></thead>
             <tbody>${rows}</tbody>
           </table>`;
@@ -481,6 +598,10 @@
     const isAdmin = __IS_ADMIN__;
     const userParam = new URLSearchParams(location.search).get('user') ?? '';
     if (isAdmin) document.getElementById('pull-btn').style.display = '';
+    else {
+      const hint = document.getElementById('forecast-admin-hint');
+      if (hint) hint.style.display = 'block';
+    }
 
     document.getElementById('pull-btn').addEventListener('click', async () => {
       const btn = document.getElementById('pull-btn');

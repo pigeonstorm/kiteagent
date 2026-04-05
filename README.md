@@ -53,7 +53,7 @@ cargo build --release
 | Push / notification target | `http://localhost:8080` | `notification.server_url` |
 | HRRR forecast (fallback) | `https://hrrr.pigeonstorm.com` | `server.hrrr_url` (when unset) |
 | Agent forecast fetch | `http://localhost:8081/forecast` (debug) / `https://hrrr.pigeonstorm.com/forecast` (release) | compile-time in agent |
-| ARL:UT station (scraped) | `https://wwwext.arlut.utexas.edu/weather/lake/` | fixed in live-server |
+| ARL:UT station (scraped) | [ARL:UT Lake Travis weather station](https://wwwext.arlut.utexas.edu/weather/lake/) | fixed in live-server |
 | NOAA NOMADS (HRRR GRIB) | `https://nomads.ncep.noaa.gov/cgi-bin/filter_hrrr_2d.pl` | fixed in hrrr-server |
 
 ## Configuration

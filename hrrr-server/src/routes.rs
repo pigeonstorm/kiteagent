@@ -244,27 +244,14 @@ async fn pull(
 
     info!(lat, lon, forecast_days = q.forecast_days, "admin pull requested");
 
-    match hrrr::fetch_hrrr(&state.http, lat, lon, q.forecast_days).await {
-        Ok((run, slots)) => {
-            let json_val = hrrr::to_openmeteo_json(&slots, "kn");
-            let raw_json = serde_json::to_string(&json_val).unwrap_or_default();
-            let valid_from = slots.first().map(|s| s.time.as_str()).unwrap_or("");
-            let valid_to = slots.last().map(|s| s.time.as_str()).unwrap_or("");
-            let fetched_at = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string();
-
-            if let Err(e) = state.db.upsert_forecast_cache(
-                lat, lon, &run.date, run.cycle as i32,
-                &fetched_at, valid_from, valid_to, &raw_json,
-            ) {
-                error!(error = %e, "failed to cache forecast after pull");
-            }
-
-            info!(run_date = %run.date, run_cycle = run.cycle, hours = slots.len(), "admin pull succeeded");
+    match crate::pull_forecast_cache(&state.http, &state.db, lat, lon, q.forecast_days).await {
+        Ok((run, hours, fetched_at)) => {
+            info!(run_date = %run.date, run_cycle = run.cycle, hours, "admin pull succeeded");
             Json(serde_json::json!({
                 "ok": true,
                 "fetched_at": fetched_at,
                 "run": format!("t{:02}z", run.cycle),
-                "hours": slots.len(),
+                "hours": hours,
             })).into_response()
         }
         Err(e) => {

@@ -8,6 +8,32 @@ use live_server::{db, grpc, routes, AppState};
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+
+    if args.first().map(|s| s.as_str()) == Some("pull") {
+        tracing_subscriber::fmt()
+            .with_ansi(false)
+            .with_env_filter(
+                tracing_subscriber::EnvFilter::from_default_env()
+                    .add_directive("live_server=debug".parse()?)
+                    .add_directive("info".parse()?),
+            )
+            .init();
+        let db_arg = args
+            .get(1)
+            .cloned()
+            .unwrap_or_else(|| "live.db".to_string());
+        let db_path = live_server::resolve_db_path(&db_arg);
+        info!("database: {}", db_path);
+        let r = live_server::pull_once(&db_arg).await?;
+        info!(
+            wind_kn = r.wind_speed_kn,
+            dir = %r.wind_direction,
+            "live-server pull: stored reading"
+        );
+        return Ok(());
+    }
+
     tracing_subscriber::fmt()
         .with_ansi(false)
         .with_env_filter(
@@ -17,21 +43,12 @@ async fn main() -> Result<()> {
         )
         .init();
 
-    let db_path_arg = std::env::args()
-        .nth(1)
+    let db_path_arg = args
+        .get(0)
+        .cloned()
         .unwrap_or_else(|| "live.db".to_string());
 
-    // Resolve to absolute path so the same file is used regardless of cwd
-    let db_path = std::path::Path::new(&db_path_arg);
-    let db_path = if db_path.is_absolute() {
-        db_path_arg
-    } else {
-        std::env::current_dir()
-            .map(|cwd| cwd.join(&db_path_arg))
-            .unwrap_or_else(|_| std::path::PathBuf::from(&db_path_arg))
-            .to_string_lossy()
-            .to_string()
-    };
+    let db_path = live_server::resolve_db_path(&db_path_arg);
     info!("database: {}", db_path);
 
     let http_bind =

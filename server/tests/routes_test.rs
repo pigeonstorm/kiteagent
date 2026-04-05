@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use axum::body::Body;
+use axum::body::{to_bytes, Body};
 use axum::http::{Request, StatusCode};
 use kiteagent_shared::{Config, Db};
 use tower::ServiceExt;
@@ -71,6 +71,23 @@ fn test_state() -> Arc<AppState> {
         http: reqwest::Client::new(),
         web_push: WebPushClient::new().expect("WebPushClient"),
     })
+}
+
+#[tokio::test]
+async fn doc_returns_200_with_architecture_section() {
+    let state = test_state();
+    let app = router(state);
+    let res = app
+        .oneshot(Request::builder().uri("/doc").body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let body = to_bytes(res.into_body(), usize::MAX).await.unwrap();
+    let text = String::from_utf8_lossy(&body);
+    assert!(
+        text.contains("Architecture") && text.contains("mermaid"),
+        "doc page should include architecture and mermaid diagram"
+    );
 }
 
 #[tokio::test]

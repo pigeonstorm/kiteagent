@@ -75,6 +75,7 @@ struct NotificationInfo {
 pub fn router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/", get(serve_index))
+        .route("/doc", get(serve_doc))
         .route("/sw.js", get(serve_sw))
         .route("/manifest.json", get(serve_manifest))
         .route("/logo.png", get(serve_logo))
@@ -107,6 +108,33 @@ fn load_index_html() -> String {
     }
     tracing::debug!("serving embedded index");
     include_str!("../static/index.html").to_string()
+}
+
+fn load_doc_html() -> String {
+    let manifest_dir = env!("CARGO_MANIFEST_DIR");
+    let candidates = [
+        format!("{}/static/doc.html", manifest_dir),
+        "server/static/doc.html".to_string(),
+        "static/doc.html".to_string(),
+    ];
+    for path in &candidates {
+        if let Ok(html) = std::fs::read_to_string(path) {
+            tracing::debug!(path = %path, "serving doc from file");
+            return html;
+        }
+    }
+    tracing::debug!("serving embedded doc");
+    include_str!("../static/doc.html").to_string()
+}
+
+async fn serve_doc() -> impl IntoResponse {
+    let html = load_doc_html();
+    let headers = [
+        (header::CONTENT_TYPE, "text/html; charset=utf-8"),
+        (header::CACHE_CONTROL, "no-cache, no-store, must-revalidate"),
+        (header::PRAGMA, "no-cache"),
+    ];
+    (headers, html)
 }
 
 async fn serve_index(

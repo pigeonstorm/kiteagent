@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KiteAgent — Documentation</title>
+  <link rel="icon" href="/logo-32.png" sizes="32x32">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+  <style>
+    :root {
+      --pico-background-color: #051a2c;
+      --pico-primary: #1a9fb5;
+      --pico-primary-background: rgba(26, 159, 181, 0.1);
+      --pico-primary-inverse: #051a2c;
+      --pico-muted-border-color: rgba(26, 159, 181, 0.2);
+      --pico-block-spacing: 0.75rem;
+    }
+    body { max-width: 44rem; margin: 0 auto; padding: 1rem 0.75rem; }
+    h1 { margin-bottom: 0.25rem; }
+    .subtitle { color: var(--pico-muted-color); font-size: 0.875rem; margin-bottom: 1rem; }
+    .doc-nav { margin-bottom: 1.25rem; font-size: 0.9rem; }
+    .doc-nav a { color: var(--pico-primary); }
+    article { margin-bottom: 1.5rem; }
+    .mermaid-wrap {
+      overflow-x: auto;
+      padding: 0.75rem 0;
+      background: color-mix(in srgb, var(--pico-background-color) 92%, white);
+      border-radius: var(--pico-border-radius);
+      border: 1px solid var(--pico-muted-border-color);
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="doc-nav"><a href="/">← Home</a></p>
+    <h1>KiteAgent documentation</h1>
+    <p class="subtitle">Features and how the services fit together.</p>
+
+    <article>
+      <h2>Features</h2>
+      <ul>
+        <li>PWA subscription page, Web Push subscribe and unsubscribe, VAPID keys, welcome push on subscribe and <code>/test-push</code> for diagnostics.</li>
+        <li>JSON <code>/forecast</code> (latest stored forecast plus rideable windows from the last analysis) and <code>/status</code> (health-style snapshot from SQLite).</li>
+        <li>Authenticated <code>POST /push</code> (Bearer secret) to fan out notifications to all stored subscriptions.</li>
+        <li>Admin-only <code>POST /pull</code> (matching configured user) to fetch forecast from a configurable HRRR base URL and insert it into the shared database.</li>
+        <li>Optional <code>GET /live</code> proxy to live-server when <code>[live]</code> HTTP URL is set in config.</li>
+        <li><strong>Agent</strong> (separate process): scheduled fetch of HRRR-shaped forecast (local <code>hrrr-server</code> in debug builds, remote in release), rideable-window evaluation against gear, opportunity alerts and morning digest via <code>POST /push</code>, optional live-wind checks over gRPC to <code>live-server</code>.</li>
+      </ul>
+    </article>
+
+    <article>
+      <h2>Architecture</h2>
+      <p>Typical deployment: agent and server share one SQLite file (<code>storage.db_path</code> in <code>config.toml</code>). Optional services are wired when you run <code>hrrr-server</code>, <code>live-server</code>, and config blocks.</p>
+      <div class="mermaid-wrap">
+        <pre class="mermaid">
+flowchart LR
+  subgraph forecastData [Forecast_data]
+    NOMADS[NOMADS_HRRR]
+  end
+  NOMADS --> hrrr[hrrr_server]
+  hrrr -->|"HTTP /forecast"| agent[kiteagent_agent]
+  arl[ARL_UT_Lake_Travis] --> live[live_server]
+  live -->|gRPC_GetLatest| agent
+  agent -->|POST_push| ks[kiteagent_server]
+  agent --> db[(SQLite)]
+  ks --> db
+  browser[Browser_PWA] -->|subscribe_static| ks
+  ks -->|Web_Push| push[Push_gateways]
+        </pre>
+      </div>
+    </article>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>
+    mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'strict' });
+  </script>
+</body>
+</html>

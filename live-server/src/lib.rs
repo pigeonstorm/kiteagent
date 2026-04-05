@@ -46,6 +46,32 @@ pub struct AppState {
 
 const STATION_URL: &str = "https://wwwext.arlut.utexas.edu/weather/lake/";
 
+/// Resolve DB path relative to the current working directory (same as the HTTP server binary).
+pub fn resolve_db_path(db_path_arg: &str) -> String {
+    let p = std::path::Path::new(db_path_arg);
+    if p.is_absolute() {
+        db_path_arg.to_string()
+    } else {
+        std::env::current_dir()
+            .map(|cwd| cwd.join(db_path_arg))
+            .unwrap_or_else(|_| std::path::PathBuf::from(db_path_arg))
+            .to_string_lossy()
+            .to_string()
+    }
+}
+
+/// Scrape the station once and store a row (CLI `live-server pull` / dev bootstrap).
+pub async fn pull_once(db_path: &str) -> anyhow::Result<WeatherReading> {
+    let db_path = resolve_db_path(db_path);
+    let db = db::Db::open(&db_path)?;
+    let http = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .user_agent("live-server/0.1 (pigeonstorm.com)")
+        .build()?;
+    let state = AppState { db, http };
+    scrape_and_store(&state).await
+}
+
 pub async fn scrape_loop(state: Arc<AppState>, interval_secs: u64) {
     // First tick fires immediately.
     let mut interval = tokio::time::interval(Duration::from_secs(interval_secs));

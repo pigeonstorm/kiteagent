@@ -42,6 +42,12 @@ def kill_pids(pids)
   pids.each { |pid| Process.kill("TERM", pid) rescue nil }
 end
 
+# Prime local SQLite before services start (Windy Point HRRR cache + one live scrape).
+def dev_initial_pulls
+  sh HRRR_DEV, "pull"
+  sh LIVE_DEV, "pull"
+end
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Help
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -59,7 +65,7 @@ HELP_TEXT = <<~HELP
 
   dev:
     rake dev:build   Build debug (cargo build)
-    rake dev:run     Run all: server, hrrr, live, agent (all in bg)
+    rake dev:run     hrrr-server pull + live-server pull, then server, hrrr, live, agent (bg)
     rake dev:watch   Auto-reload server + agent, opens browser
 
   prod:
@@ -73,6 +79,10 @@ HELP_TEXT = <<~HELP
     rake hrrr        Start HRRR API only
     rake live        Start live-server only
 
+  CLI (after cargo build):
+    #{HRRR_DEV} pull   Fetch/cache Windy Point HRRR (default db hrrr.db)
+    #{LIVE_DEV} pull   Scrape ARL station once (default db live.db)
+
   CONVENIENCE
 
     rake run         Alias for dev:run
@@ -80,6 +90,11 @@ HELP_TEXT = <<~HELP
     rake hrrr:dev    HRRR with cargo-watch
     rake live:dev    Live-server with cargo-watch
     rake agent:dev   Agent with cargo-watch
+
+  DIAGNOSTICS
+
+    rake diagnose:push  Check push subscriptions, VAPID key
+                        consistency, and server reachability
 
   LIST TASKS
 
@@ -105,6 +120,7 @@ namespace :dev do
 
   desc "Run all services (server, hrrr, live, agent in bg)"
   task run: [:build] do
+    dev_initial_pulls
     pids = spawn_all_dev
     at_exit { kill_pids(pids) }
     sleep
@@ -189,4 +205,117 @@ end
 desc "Dev mode for agent with auto-reload"
 task "agent:dev" do
   sh "cargo watch -w agent/src -w shared/src -x 'run -p kiteagent-agent -- #{CONFIG}'"
+end
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Push notification diagnostics
+# ═══════════════════════════════════════════════════════════════════════════════
+
+namespace :diagnose do
+  desc "Check push subscriptions and VAPID key consistency"
+  task :push do
+    require "toml-rb" if Gem.loaded_specs["toml-rb"]
+    require "json"
+
+    db_path = nil
+    push_secret = nil
+    server_url = nil
+
+    # Parse config.toml for db_path, push_secret, server_url
+    if File.exist?(CONFIG)
+      cfg = File.read(CONFIG)
+      db_path      = cfg[/^\s*db_path\s*=\s*"([^"]+)"/, 1] || "kiteagent.db"
+      push_secret  = cfg[/^\s*push_secret\s*=\s*"([^"]+)"/, 1]
+      server_url   = cfg[/^\s*server_url\s*=\s*"([^"]+)"/, 1] || "http://localhost:8080"
+    else
+      abort "#{CONFIG} not found"
+    end
+
+    puts "━━━ Push Notification Diagnostics ━━━"
+    puts
+
+    # ── #6: Check DB exists and has subscribers ────────────────────────────────
+    puts "▶ Database: #{db_path}"
+    unless File.exist?(db_path)
+      puts "  ✗ Database file not found! The server has never run from this directory,"
+      puts "    or db_path in config.toml is wrong."
+      puts "    Hint: check the working directory of your server process."
+      puts
+    else
+      size = (File.size(db_path) / 1024.0).round(1)
+      puts "  ✓ Exists (#{size} KB)"
+
+      sub_count = `sqlite3 "#{db_path}" "SELECT COUNT(*) FROM push_subscriptions;" 2>/dev/null`.strip
+      if sub_count.empty?
+        puts "  ✗ Could not query push_subscriptions (is sqlite3 installed?)"
+      elsif sub_count == "0"
+        puts "  ✗ No push subscriptions! Open the PWA and subscribe first."
+      else
+        puts "  ✓ #{sub_count} subscriber(s)"
+
+        # List endpoints (truncated)
+        endpoints = `sqlite3 "#{db_path}" "SELECT endpoint FROM push_subscriptions;" 2>/dev/null`.strip.split("\n")
+        endpoints.each do |ep|
+          domain = ep[%r{https?://([^/]+)}, 1] || ep[0..60]
+          apple  = ep.include?("push.apple.com") ? " (Apple)" : ""
+          puts "    • #{domain}#{apple}"
+        end
+      end
+      puts
+
+      # Check for recent push errors in server logs
+      notif_count = `sqlite3 "#{db_path}" "SELECT COUNT(*) FROM notifications_sent;" 2>/dev/null`.strip
+      last_notif  = `sqlite3 "#{db_path}" "SELECT sent_at FROM notifications_sent ORDER BY id DESC LIMIT 1;" 2>/dev/null`.strip
+      puts "  Notifications sent: #{notif_count} total"
+      puts "  Last notification:  #{last_notif.empty? ? '(never)' : last_notif}"
+      puts
+    end
+
+    # ── #5: Check VAPID key consistency ────────────────────────────────────────
+    vapid_file = "vapid_keys.json"
+    puts "▶ VAPID keys: #{vapid_file}"
+    if File.exist?(vapid_file)
+      mtime = File.mtime(vapid_file).strftime("%Y-%m-%d %H:%M:%S")
+      puts "  ✓ Exists (last modified: #{mtime})"
+
+      # Warn if VAPID keys were regenerated after existing subscriptions
+      if File.exist?(db_path)
+        oldest_sub = `sqlite3 "#{db_path}" "SELECT created_at FROM push_subscriptions ORDER BY id ASC LIMIT 1;" 2>/dev/null`.strip
+        unless oldest_sub.empty?
+          sub_time = Time.parse(oldest_sub) rescue nil
+          if sub_time && File.mtime(vapid_file) > sub_time
+            puts "  ⚠ VAPID keys were modified AFTER the oldest subscription!"
+            puts "    Subscriptions created before #{mtime} are now STALE."
+            puts "    Fix: have all users unsubscribe and re-subscribe."
+          else
+            puts "  ✓ VAPID keys are older than all subscriptions (consistent)"
+          end
+        end
+      end
+    else
+      puts "  ✗ #{vapid_file} not found — the server will generate new keys on next start."
+      puts "    Any existing subscriptions will become invalid."
+    end
+    puts
+
+    # ── Live server check ──────────────────────────────────────────────────────
+    puts "▶ Server reachability: #{server_url}"
+    begin
+      status_json = `curl -sf "#{server_url}/status" 2>/dev/null`
+      if status_json.empty?
+        puts "  ✗ Server not responding at #{server_url}/status"
+      else
+        status = JSON.parse(status_json)
+        puts "  ✓ Running (v#{status['version']}, #{status['subscribers']} subscriber(s))"
+        if status["errors_last_24h"].to_i > 0
+          puts "  ⚠ #{status['errors_last_24h']} error(s) in the last 24 hours"
+        end
+      end
+    rescue => e
+      puts "  ✗ Could not reach server: #{e.message}"
+    end
+    puts
+
+    puts "━━━ Done ━━━"
+  end
 end
