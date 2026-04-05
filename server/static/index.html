@@ -213,6 +213,43 @@ __SEO_ABSOLUTE__
       font-size: 0.8rem;
       line-height: 1;
     }
+    .foil-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-size: 0.75rem;
+      color: var(--pico-muted-color);
+      cursor: pointer;
+      user-select: none;
+      margin-left: 0.3rem;
+    }
+    .foil-toggle input { display: none; }
+    .foil-switch {
+      position: relative;
+      width: 28px;
+      height: 16px;
+      background: var(--pico-muted-border-color);
+      border-radius: 8px;
+      transition: background 0.2s;
+      flex-shrink: 0;
+    }
+    .foil-switch::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 12px;
+      height: 12px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.2s;
+    }
+    .foil-toggle input:checked + .foil-switch {
+      background: var(--pico-primary);
+    }
+    .foil-toggle input:checked + .foil-switch::after {
+      transform: translateX(12px);
+    }
 
     /* gear cell in forecast table */
     #forecast-table th:last-child,
@@ -237,6 +274,11 @@ __SEO_ABSOLUTE__
       <input id="weight-input" type="number" min="30" max="180" step="1" style="display:none" placeholder="kg">
       <button class="weight-edit-btn" id="weight-edit" title="Edit weight">&#9998;</button>
       <button class="weight-edit-btn" id="weight-clear" title="Reset weight to 80 kg" style="display:none">&times;</button>
+      <label class="foil-toggle" title="Foil board (reduces effective weight by 20 kg for kite sizing)">
+        <input type="checkbox" id="foil-toggle-input">
+        <span class="foil-switch"></span>
+        Foil
+      </label>
     </div>
   </div>
 
@@ -300,6 +342,15 @@ __SEO_ABSOLUTE__
     const weightInput = document.getElementById('weight-input');
     const weightEditBtn = document.getElementById('weight-edit');
     const weightClearBtn = document.getElementById('weight-clear');
+    const foilToggle = document.getElementById('foil-toggle-input');
+
+    let foilEnabled = localStorage.getItem('foil_enabled') === 'true';
+    foilToggle.checked = foilEnabled;
+    foilToggle.addEventListener('change', () => {
+      foilEnabled = foilToggle.checked;
+      localStorage.setItem('foil_enabled', String(foilEnabled));
+      loadKitegearAndRefresh();
+    });
 
     function showWeightDisplay() {
       if (riderWeight) {
@@ -388,7 +439,7 @@ __SEO_ABSOLUTE__
     function gearCell(windKn) {
       if (!kitegear || !riderWeight) return '<td></td>';
       const w = parseFloat(riderWeight);
-      const kite = kitegear.kite_size(windKn, w);
+      const kite = kitegear.kite_size(windKn, w, foilEnabled);
       const wing = kitegear.wing_size(windKn, w);
       const parts = [];
       if (kite > 0) {

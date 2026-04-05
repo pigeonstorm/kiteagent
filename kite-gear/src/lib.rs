@@ -10,10 +10,13 @@ fn weight_factor(rider_kg: f64) -> f64 {
 }
 
 /// Kite size (m^2) for the given wind and rider weight.
+/// When `foil` is true the effective rider weight is reduced by 20 kg
+/// (foil boards generate lift, so riders can ride smaller kites).
 /// Returns 0.0 when wind is below the minimum useful range.
 #[wasm_bindgen]
-pub fn kite_size(wind_kn: f64, rider_kg: f64) -> f64 {
-    let f = weight_factor(rider_kg);
+pub fn kite_size(wind_kn: f64, rider_kg: f64, foil: bool) -> f64 {
+    let effective_kg = if foil { (rider_kg - 20.0).max(30.0) } else { rider_kg };
+    let f = weight_factor(effective_kg);
     if wind_kn >= 28.0 * f {
         5.0
     } else if wind_kn >= 19.0 * f {
