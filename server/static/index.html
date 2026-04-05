@@ -224,9 +224,6 @@ __SEO_ABSOLUTE__
       48-Hour Forecast
       <button id="pull-btn" class="outline" style="float:right;padding:0.2rem 0.7rem;font-size:0.75rem;margin:0;display:none">Pull now</button>
     </header>
-    <p id="forecast-admin-hint" class="fetch-meta" style="display:none;margin-top:0.25rem">
-      Manual refresh: add <code>?user=…</code> (same as <code>config.toml</code> → <code>user.name</code>), then use <strong>Pull now</strong> (loads HRRR into this app’s DB).
-    </p>
     <div id="forecast-info"><span aria-busy="true">Loading…</span></div>
   </article>
 
@@ -791,10 +788,6 @@ __SEO_ABSOLUTE__
     const isAdmin = __IS_ADMIN__;
     const userParam = new URLSearchParams(location.search).get('user') ?? '';
     if (isAdmin) document.getElementById('pull-btn').style.display = '';
-    else {
-      const hint = document.getElementById('forecast-admin-hint');
-      if (hint) hint.style.display = 'block';
-    }
 
     document.getElementById('pull-btn').addEventListener('click', async () => {
       const btn = document.getElementById('pull-btn');
