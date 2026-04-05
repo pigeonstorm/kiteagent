@@ -2,6 +2,12 @@
 
 A Rust-based kitesurf weather agent that monitors conditions at Windy Point, Lake Travis, Austin TX and sends browser push notifications with gear recommendations when it's time to ride.
 
+## Prerequisites
+
+- **Rust** — [rustup](https://rustup.rs/) is recommended (`cargo`, `rustc`).
+- **wasm-pack** — Needed to build the **kite-gear** WASM used by the server UI (`/kite-gear.js`). Install with `brew install wasm-pack` or `cargo install wasm-pack`. See the [wasm-pack book](https://rustwasm.github.io/wasm-pack/installer/) for other platforms.
+- **Wasm target** — Once per toolchain: `rustup target add wasm32-unknown-unknown`. If macOS **Homebrew** Rust is on your `PATH` ahead of rustup, `rake kite-gear` prepends `~/.cargo/bin` so wasm-pack uses rustup’s `rustc` (Homebrew’s often lacks the wasm target).
+
 ## Quick Start
 
 The easiest way to run both binaries together is via the Rake tasks:
