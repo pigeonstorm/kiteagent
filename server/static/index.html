@@ -718,6 +718,11 @@ __SEO_ABSOLUTE__
       };
     }
 
+    /** Live station reports °F; forecast table uses °C (HRRR). */
+    function celsiusFromFahrenheit(f) {
+      return (f - 32) * (5 / 9);
+    }
+
     function infoRow(label, value) {
       return `<div class="info-row"><span>${label}</span><span>${value}</span></div>`;
     }
@@ -834,7 +839,7 @@ __SEO_ABSOLUTE__
             <td><span class="wind-val">${Math.round(windKn)}</span> <span class="gust-val">↑${Math.round(gustKn)}</span> kts</td>
             <td class="forecast-ratio-cell">${liveStripe.windGustRatioLabel}</td>
             <td>${bearing(dir)}</td>
-            <td>${liveData.temperature_f != null ? Math.round(liveData.temperature_f) + '°F' : '—'}</td>
+            <td>${liveData.temperature_f != null ? Math.round(celsiusFromFahrenheit(liveData.temperature_f)) + '°C' : '—'}</td>
             <td>◉</td>
             ${gearCell(windKn)}
           </tr>`;
