@@ -216,7 +216,15 @@ end
 
 desc "Build kite-gear WASM for the server UI (wasm-pack → kite-gear/pkg/)"
 task :"kite-gear" do
-  sh "wasm-pack build --target web kite-gear"
+  # Prefer rustup's rustc (~/.cargo/bin) so wasm32-unknown-unknown is available when
+  # Homebrew Rust is also on PATH (wasm-pack otherwise picks /opt/homebrew/bin/rustc).
+  cargo_bin = File.join(Dir.home, ".cargo", "bin")
+  env = if File.directory?(cargo_bin)
+          { "PATH" => "#{cargo_bin}:#{ENV.fetch('PATH', '')}" }
+        else
+          {}
+        end
+  sh env, "wasm-pack build --target web kite-gear"
 end
 
 desc "Alias for rake kite-gear"
