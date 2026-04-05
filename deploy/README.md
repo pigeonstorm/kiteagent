@@ -17,6 +17,28 @@ cargo build --release --target aarch64-unknown-linux-gnu
 # target/aarch64-unknown-linux-gnu/release/kiteagent-server
 ```
 
+## Kite Gear WASM (required for `/kite-gear.js`)
+
+The subscription UI loads `kite-gear.js` and WebAssembly from disk at runtime. The server looks for them under **`WorkingDirectory`** (`/opt/kiteagent` in the systemd unit) at `kite-gear/pkg/kite_gear.js` and `kite-gear/pkg/kite_gear_bg.wasm` (the latter is also exposed as `/kite-gear.wasm` and `/kite_gear_bg.wasm`).
+
+Build the pkg on your build machine (needs [`wasm-pack`](https://rustwasm.github.io/wasm-pack/installer/)):
+
+```bash
+wasm-pack build --target web kite-gear
+```
+
+Deploy the generated files **with** the binary (the `pkg/` directory is gitignored; it is not in the repo):
+
+```bash
+scp -r kite-gear/pkg ec2-user@YOUR_INSTANCE:~/kite-gear-pkg
+# On the instance, after mkdir /opt/kiteagent (see below):
+sudo mkdir -p /opt/kiteagent/kite-gear
+sudo mv ~/kite-gear-pkg /opt/kiteagent/kite-gear/pkg
+sudo chown -R kiteagent:kiteagent /opt/kiteagent/kite-gear
+```
+
+If you skip this step, the browser console shows **404** on `kite-gear.js` and **WASM not available**.
+
 ## Deploy to EC2 Graviton 3
 
 ```bash
@@ -24,6 +46,7 @@ cargo build --release --target aarch64-unknown-linux-gnu
 scp target/aarch64-unknown-linux-gnu/release/kiteagent-agent ec2-user@YOUR_INSTANCE:~/
 scp target/aarch64-unknown-linux-gnu/release/kiteagent-server ec2-user@YOUR_INSTANCE:~/
 scp config.toml ec2-user@YOUR_INSTANCE:~/
+# Copy WASM/JS (see section above): kite-gear/pkg → /opt/kiteagent/kite-gear/pkg
 
 # On the instance:
 sudo mkdir -p /opt/kiteagent
@@ -58,4 +81,5 @@ sudo systemctl reload nginx
 ## Verify
 
 - Server: `curl http://localhost:8080/status`
+- Kite Gear assets (after TLS): `curl -sS -o /dev/null -w '%{http_code}\n' https://YOUR_DOMAIN/kite-gear.js` should print `200`
 - Agent: check logs with `journalctl -u kiteagent-agent -f`

@@ -129,6 +129,8 @@ HELP_TEXT = <<~HELP
 
     rake run         Alias for dev:run
     rake build       Release build
+    rake kite-gear   Build kite-gear WASM (wasm-pack → kite-gear/pkg/; needed for /kite-gear.js)
+    rake wasm        Same as kite-gear
     rake hrrr:dev    HRRR with cargo-watch
     rake live:dev    Live-server with cargo-watch
     rake agent:dev   Agent with cargo-watch
@@ -212,10 +214,13 @@ task :build do
   sh "cargo build --release"
 end
 
-desc "Build kitegear WASM package (requires wasm-pack)"
-task :wasm do
+desc "Build kite-gear WASM for the server UI (wasm-pack → kite-gear/pkg/)"
+task :"kite-gear" do
   sh "wasm-pack build --target web kite-gear"
 end
+
+desc "Alias for rake kite-gear"
+task wasm: :"kite-gear"
 
 desc "Run all services (dev mode). Use: rake dev:run"
 task run: "dev:run"
