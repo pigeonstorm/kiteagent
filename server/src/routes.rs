@@ -8,6 +8,7 @@ use axum::{
 use std::collections::HashMap;
 use kiteagent_shared::{Config, Db};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use std::sync::Arc;
 use tower_http::cors::CorsLayer;
 
@@ -100,6 +101,44 @@ pub fn router(state: Arc<AppState>) -> Router {
         .with_state(state)
 }
 
+fn seo_head_injection(public_base_url: Option<&str>) -> String {
+    const DESC: &str = "Kitesurf forecast alerts for Windy Point, Lake Travis (Austin, TX). Rideable wind windows, gear suggestions, and optional Web Push notifications.";
+    let Some(base) = public_base_url
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(|s| s.trim_end_matches('/'))
+    else {
+        return "  <meta name=\"twitter:card\" content=\"summary\">\n".to_string();
+    };
+    let page_url = format!("{base}/");
+    let image_url = format!("{base}/logo-512.png");
+    let ld = json!({
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "KiteAgent",
+        "description": DESC,
+        "url": &page_url,
+        "applicationCategory": "SportsApplication",
+        "operatingSystem": "Any",
+    });
+    let ld_str = serde_json::to_string(&ld).unwrap_or_else(|_| "{}".to_string());
+    format!(
+        concat!(
+            "  <link rel=\"canonical\" href=\"{page_url}\">\n",
+            "  <meta property=\"og:url\" content=\"{page_url}\">\n",
+            "  <meta property=\"og:image\" content=\"{image_url}\">\n",
+            "  <meta property=\"og:image:width\" content=\"512\">\n",
+            "  <meta property=\"og:image:height\" content=\"512\">\n",
+            "  <meta name=\"twitter:card\" content=\"summary_large_image\">\n",
+            "  <meta name=\"twitter:image\" content=\"{image_url}\">\n",
+            "  <script type=\"application/ld+json\">\n  {ld_str}\n  </script>\n",
+        ),
+        page_url = page_url,
+        image_url = image_url,
+        ld_str = ld_str,
+    )
+}
+
 fn load_index_html() -> String {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
     let candidates = [
@@ -157,7 +196,9 @@ async fn serve_index(
         .and_then(|l| l.http_url.as_ref())
         .is_some();
     let public_key = state.vapid.public_key_base64url().unwrap_or_default();
+    let seo = seo_head_injection(state.config.server.public_base_url.as_deref());
     let html = load_index_html()
+        .replace("__SEO_ABSOLUTE__", &seo)
         .replace("__VAPID_PUBLIC_KEY__", &public_key)
         .replace("__IS_ADMIN__", if is_admin { "true" } else { "false" })
         .replace("__LIVE_ENABLED__", if live_enabled { "true" } else { "false" });

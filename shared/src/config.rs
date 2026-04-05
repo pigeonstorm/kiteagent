@@ -72,6 +72,9 @@ pub struct ServerConfig {
     /// HRRR forecast API base URL (e.g. http://localhost:8081). Used by /pull.
     #[serde(default)]
     pub hrrr_url: Option<String>,
+    /// Public site URL (e.g. https://example.com) for canonical link, Open Graph, and JSON-LD. No trailing slash.
+    #[serde(default)]
+    pub public_base_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

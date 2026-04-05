@@ -24,6 +24,7 @@ push_secret = "change-this-random-secret"
 [server]
 bind = "0.0.0.0:9090"
 vapid_subject = "mailto:you@example.com"
+# public_base_url = "https://your.domain"  # optional: canonical URL, Open Graph, JSON-LD for search/social
 
 [schedule]
 fetch_interval_min = 60
