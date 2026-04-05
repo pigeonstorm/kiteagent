@@ -677,8 +677,8 @@ __SEO_ABSOLUTE__
       const el = document.getElementById('update-info');
       try {
         const [statusRes, forecastRes, liveRes] = await Promise.all([
-          fetch('/status').then(r => r.json()),
-          fetch('/forecast').then(r => r.ok ? r.json() : null).catch(() => null),
+          fetch('/status', { cache: 'no-store' }).then(r => r.json()),
+          fetch('/forecast', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null),
           LIVE_ENABLED ? fetch('/live', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null) : Promise.resolve(null),
         ]);
         const d = statusRes;
@@ -741,7 +741,7 @@ __SEO_ABSOLUTE__
     async function loadForecast() {
       const el = document.getElementById('forecast-info');
       try {
-        const d = await fetch('/forecast').then(r => r.json());
+        const d = await fetch('/forecast', { cache: 'no-store' }).then(r => r.json());
         if (d.error) {
           el.innerHTML = `<span style="color:var(--pico-muted-color)">${d.error}</span>`;
           return;
@@ -813,7 +813,7 @@ __SEO_ABSOLUTE__
         const table = `
           <table id="forecast-table">
             <thead><tr>
-              <th>Time</th><th>Wind / Gusts</th><th class="forecast-col-ratio">Wind/Gust</th><th>Dir</th><th>Temp</th><th>Cond</th><th>Gear</th>
+              <th>Time</th><th>Wind / Gusts</th><th class="forecast-col-ratio">Wind/Gust</th><th>Dir</th><th>Temp</th><th>Sun</th><th>Gear</th>
             </tr></thead>
             <tbody>${rows}</tbody>
           </table>`;
@@ -843,7 +843,7 @@ __SEO_ABSOLUTE__
       const prev = btn.textContent;
       btn.textContent = '…';
       try {
-        const res = await fetch(`/analyze?user=${encodeURIComponent(q)}`, { method: 'POST' });
+        const res = await fetch(`/analyze?user=${encodeURIComponent(q)}`, { method: 'POST', cache: 'no-store' });
         const d = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(d.error || res.statusText);
         await loadForecast();
@@ -865,7 +865,7 @@ __SEO_ABSOLUTE__
       btn.textContent = 'Pulling…';
       try {
         const pullUrl = userParam ? `/pull?user=${encodeURIComponent(userParam)}` : '/pull';
-        const res = await fetch(pullUrl, { method: 'POST' });
+        const res = await fetch(pullUrl, { method: 'POST', cache: 'no-store' });
         const d = await res.json();
         if (d.ok) {
           await loadForecast();

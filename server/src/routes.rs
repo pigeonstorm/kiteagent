@@ -7,7 +7,7 @@ use axum::{
 };
 use std::collections::HashMap;
 use kiteagent_agent::conditions::evaluate;
-use kiteagent_agent::weather::{parse_open_meteo, OpenMeteoResponse};
+use kiteagent_agent::weather::forecast_from_raw_json;
 use kiteagent_shared::{Config, Db};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -15,6 +15,14 @@ use std::sync::Arc;
 use tower_http::cors::CorsLayer;
 
 use crate::vapid::{send_push, VapidKeys};
+
+/// Avoid stale `/status` and `/forecast` in browsers or intermediaries after admin actions.
+fn json_no_store<T: Serialize>(body: T) -> impl IntoResponse {
+    (
+        [(header::CACHE_CONTROL, "no-store, must-revalidate")],
+        Json(body),
+    )
+}
 
 pub struct AppState {
     pub db: Db,
@@ -581,8 +589,8 @@ async fn analyze_forecast(
         }
     };
 
-    let om: OpenMeteoResponse = match serde_json::from_str(&row.raw_json) {
-        Ok(v) => v,
+    let forecast = match forecast_from_raw_json(&row.raw_json) {
+        Ok(f) => f,
         Err(e) => {
             tracing::error!(%e, "analyze: parse forecast JSON failed");
             return (
@@ -592,8 +600,6 @@ async fn analyze_forecast(
                 .into_response();
         }
     };
-
-    let forecast = parse_open_meteo(om);
     let windows = evaluate(&forecast, &state.config);
     let result_json = match serde_json::to_string(&windows) {
         Ok(s) => s,
@@ -739,7 +745,7 @@ async fn forecast(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let row = match state.db.last_forecast() {
         Ok(Some(r)) => r,
         _ => {
-            return Json(serde_json::json!({
+            return json_no_store(serde_json::json!({
                 "error": "no forecast data yet"
             }))
             .into_response()
@@ -784,7 +790,7 @@ async fn forecast(State(state): State<Arc<AppState>>) -> impl IntoResponse {
             .any(|w| hour.time >= w.start && hour.time <= w.end);
     }
 
-    Json(ForecastResponse {
+    json_no_store(ForecastResponse {
         fetched_at: row.fetched_at,
         source: row.source,
         valid_from: row.valid_from,
@@ -809,7 +815,7 @@ async fn status(State(state): State<Arc<AppState>>) -> impl IntoResponse {
         arr.into_iter().next()
     });
 
-    Json(StatusResponse {
+    json_no_store(StatusResponse {
         service: "kiteagent",
         version: env!("CARGO_PKG_VERSION"),
         uptime_seconds: 0,
@@ -830,4 +836,5 @@ async fn status(State(state): State<Arc<AppState>>) -> impl IntoResponse {
         errors_last_24h: errors,
         subscribers,
     })
+    .into_response()
 }

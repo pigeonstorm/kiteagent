@@ -73,6 +73,68 @@ pub fn parse_open_meteo(resp: OpenMeteoResponse) -> Forecast {
     }
 }
 
+/// Parse stored Open-Meteo-style JSON into a [`Forecast`], using the same loose rules as the
+/// server’s `/forecast` hour extractor. Strict [`OpenMeteoResponse`] deserialization often fails on
+/// real API JSON (optional fields, extra keys); this keeps `POST /analyze` aligned with what the UI already displays.
+pub fn forecast_from_raw_json(raw_json: &str) -> anyhow::Result<Forecast> {
+    use anyhow::Context;
+    let v: serde_json::Value =
+        serde_json::from_str(raw_json).context("forecast JSON is not valid")?;
+    let h = v.get("hourly").context("forecast JSON missing hourly")?;
+    let times = h
+        .get("time")
+        .and_then(|t| t.as_array())
+        .context("hourly.time is not an array")?;
+
+    let winds = h
+        .get("windspeed_10m")
+        .and_then(|a| a.as_array())
+        .cloned()
+        .unwrap_or_default();
+    let gusts = h
+        .get("windgusts_10m")
+        .and_then(|a| a.as_array())
+        .cloned()
+        .unwrap_or_default();
+    let dirs = h
+        .get("winddirection_10m")
+        .and_then(|a| a.as_array())
+        .cloned()
+        .unwrap_or_default();
+    let temps = h
+        .get("temperature_2m")
+        .and_then(|a| a.as_array())
+        .cloned()
+        .unwrap_or_default();
+    let wmos = h
+        .get("weathercode")
+        .and_then(|a| a.as_array())
+        .cloned()
+        .unwrap_or_default();
+
+    let mut slots = Vec::with_capacity(times.len());
+    for (i, t) in times.iter().enumerate() {
+        let wind_speed_kn = winds.get(i).and_then(|v| v.as_f64()).unwrap_or(0.0);
+        let wind_gusts_kn = gusts
+            .get(i)
+            .and_then(|v| v.as_f64())
+            .unwrap_or(wind_speed_kn);
+        slots.push(HourlySlot {
+            time: t.as_str().unwrap_or("").to_string(),
+            wind_speed_kn,
+            wind_direction_deg: dirs.get(i).and_then(|v| v.as_f64()).unwrap_or(0.0),
+            wind_gusts_kn,
+            temperature_c: temps.get(i).and_then(|v| v.as_f64()),
+            weather_code: wmos.get(i).and_then(|v| v.as_u64()).unwrap_or(0) as u32,
+        });
+    }
+
+    Ok(Forecast {
+        source: "open-meteo-hrrr".to_string(),
+        slots,
+    })
+}
+
 const MAX_ATTEMPTS: u32 = 3;
 const RETRY_DELAYS_SECS: [u64; 2] = [5, 15];
 
