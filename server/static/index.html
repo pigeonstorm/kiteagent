@@ -111,8 +111,6 @@ __SEO_ABSOLUTE__
       overflow-wrap: anywhere;
     }
     #forecast-table td.forecast-ratio-cell {
-      font-size: 0.8rem;
-      font-weight: 600;
       font-variant-numeric: tabular-nums;
     }
     #forecast-table tr.forecast-day-row td {
@@ -702,7 +700,7 @@ __SEO_ABSOLUTE__
       if (windKn < minWind) return { windGustRatioLabel: '—', bright: '0%' };
       const ratio = gustKn / windKn;
       if (!Number.isFinite(ratio) || ratio > 8) return { windGustRatioLabel: '—', bright: '0%' };
-      const windGustRatioLabel = ratio.toFixed(1);
+      const windGustRatioLabel = `x${ratio.toFixed(1)}`;
       const clamped = Math.min(2.25, Math.max(1, ratio));
       const t = (clamped - 1) / 1.25;
       return { windGustRatioLabel, bright: `${Math.round(t * 58)}%` };
@@ -837,7 +835,7 @@ __SEO_ABSOLUTE__
           rows += `<tr class="forecast-row rideable forecast-live-row" style="background:color-mix(in srgb, var(--pico-primary) 18%, transparent);${liveStripe.trStyle}">
             <td><strong>Now</strong><br><span style="font-size:0.7rem;color:var(--pico-muted-color)">live</span></td>
             <td><span class="wind-val">${Math.round(windKn)}</span> <span class="gust-val">↑${Math.round(gustKn)}</span> kts</td>
-            <td class="forecast-ratio-cell">${liveStripe.windGustRatioLabel}</td>
+            <td class="forecast-ratio-cell"><span class="gust-val">${liveStripe.windGustRatioLabel}</span></td>
             <td>${bearing(dir)}</td>
             <td>${liveData.temperature_f != null ? Math.round(celsiusFromFahrenheit(liveData.temperature_f)) + '°C' : '—'}</td>
             <td>◉</td>
@@ -858,7 +856,7 @@ __SEO_ABSOLUTE__
           rows += `<tr class="forecast-row ${rideClass}" style="${stripe.trStyle}">
             <td>${fmtTimeSpot(h.time)}</td>
             <td><span class="wind-val">${Math.round(h.wind_kn)}</span> <span class="gust-val">↑${Math.round(h.gusts_kn)}</span> kts</td>
-            <td class="forecast-ratio-cell">${stripe.windGustRatioLabel}</td>
+            <td class="forecast-ratio-cell"><span class="gust-val">${stripe.windGustRatioLabel}</span></td>
             <td>${bearing(h.dir_deg)}</td>
             <td>${h.temp_c != null ? Math.round(h.temp_c) + '°C' : '—'}</td>
             <td>${wmoIcon(h.wmo)}</td>
