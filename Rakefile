@@ -48,6 +48,48 @@ def dev_initial_pulls
   sh LIVE_DEV, "pull"
 end
 
+# HTTP port from [server] bind in config.toml (e.g. 0.0.0.0:8080 → 8080).
+def dev_kiteagent_http_port
+  return "8080" unless File.exist?(CONFIG)
+
+  in_server = false
+  File.foreach(CONFIG) do |line|
+    s = line.strip
+    if s == "[server]"
+      in_server = true
+      next
+    end
+    if s.start_with?("[") && s != "[server]"
+      in_server = false
+    end
+    next unless in_server
+
+    if (m = line[/^\s*bind\s*=\s*"[^"]*:(\d+)"/, 1])
+      return m
+    end
+  end
+  "8080"
+end
+
+def dev_print_service_urls
+  dash = dev_kiteagent_http_port
+  # spawn does not set BIND / GRPC_BIND; binaries use defaults unless you export them before rake.
+  hrrr_port = "8081"
+  live_http_port = "8082"
+  live_grpc = ENV["GRPC_BIND"]&.split(":")&.last || "50051"
+
+  puts ""
+  puts "─" * 60
+  puts "Dev services starting (logs in #{LOG_DIR}/; first boot may take a few seconds). Open:"
+  puts "  kiteagent-server   http://localhost:#{dash}/"
+  puts "  hrrr-server        http://localhost:#{hrrr_port}/"
+  puts "  live-server HTTP   http://localhost:#{live_http_port}/"
+  puts "  live-server gRPC   localhost:#{live_grpc}"
+  puts "  kiteagent-agent    (no HTTP; uses #{CONFIG})"
+  puts "─" * 60
+  puts ""
+end
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Help
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -65,7 +107,7 @@ HELP_TEXT = <<~HELP
 
   dev:
     rake dev:build   Build debug (cargo build)
-    rake dev:run     hrrr-server pull + live-server pull, then server, hrrr, live, agent (bg)
+    rake dev:run     pull + spawn all; prints local URLs for server, hrrr, live, agent note (bg)
     rake dev:watch   Auto-reload server + agent, opens browser
 
   prod:
@@ -122,6 +164,7 @@ namespace :dev do
   task run: [:build] do
     dev_initial_pulls
     pids = spawn_all_dev
+    dev_print_service_urls
     at_exit { kill_pids(pids) }
     sleep
   ensure
@@ -167,6 +210,11 @@ end
 desc "Build release binaries"
 task :build do
   sh "cargo build --release"
+end
+
+desc "Build kitegear WASM package (requires wasm-pack)"
+task :wasm do
+  sh "wasm-pack build --target web kite-gear"
 end
 
 desc "Run all services (dev mode). Use: rake dev:run"

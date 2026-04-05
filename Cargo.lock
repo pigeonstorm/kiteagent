@@ -1630,6 +1630,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "kite-gear"
+version = "0.1.0"
+dependencies = [
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "kiteagent-agent"
 version = "0.1.0"
 dependencies = [

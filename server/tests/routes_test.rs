@@ -91,6 +91,43 @@ async fn doc_returns_200_with_architecture_section() {
 }
 
 #[tokio::test]
+async fn kite_gear_js_returns_200() {
+    let state = test_state();
+    let app = router(state);
+    let res = app
+        .oneshot(Request::builder().uri("/kite-gear.js").body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let ct = res.headers().get("content-type").unwrap().to_str().unwrap();
+    assert!(ct.contains("javascript"), "content-type should be javascript");
+}
+
+#[tokio::test]
+async fn kite_gear_wasm_returns_200() {
+    let state = test_state();
+    let app = router(state);
+    let res = app
+        .oneshot(Request::builder().uri("/kite-gear.wasm").body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let ct = res.headers().get("content-type").unwrap().to_str().unwrap();
+    assert!(ct.contains("wasm"), "content-type should be wasm");
+}
+
+#[tokio::test]
+async fn kite_gear_bg_wasm_alias_returns_200() {
+    let state = test_state();
+    let app = router(state);
+    let res = app
+        .oneshot(Request::builder().uri("/kite_gear_bg.wasm").body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+}
+
+#[tokio::test]
 async fn status_returns_200() {
     let state = test_state();
     let app = router(state);

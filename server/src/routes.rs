@@ -81,6 +81,12 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/logo.png", get(serve_logo))
         .route("/logo-32.png", get(serve_logo_32))
         .route("/logo-180.png", get(serve_logo_180))
+        .route("/kite-icon.png", get(serve_kite_icon))
+        .route("/wing-icon.svg", get(serve_wing_icon))
+        .route("/kite-gear.js", get(serve_kitegear_js))
+        .route("/kite-gear.wasm", get(serve_kitegear_wasm))
+        // wasm-pack glue resolves sibling URL `kite_gear_bg.wasm` from import.meta.url
+        .route("/kite_gear_bg.wasm", get(serve_kitegear_wasm))
         .route("/subscribe", post(subscribe))
         .route("/unsubscribe", post(unsubscribe))
         .route("/push", post(push))
@@ -237,6 +243,80 @@ async fn serve_logo_180() -> impl IntoResponse {
     }
 
     (StatusCode::NOT_FOUND, "logo not found").into_response()
+}
+
+async fn serve_kite_icon() -> impl IntoResponse {
+    let manifest_dir = env!("CARGO_MANIFEST_DIR");
+    let candidates = [
+        format!("{}/static/kite-icon.png", manifest_dir),
+        "server/static/kite-icon.png".to_string(),
+        "static/kite-icon.png".to_string(),
+    ];
+    for path in &candidates {
+        if let Ok(data) = std::fs::read(path) {
+            return axum::response::Response::builder()
+                .header(header::CONTENT_TYPE, "image/png")
+                .body(axum::body::Body::from(data))
+                .unwrap()
+                .into_response();
+        }
+    }
+    (StatusCode::NOT_FOUND, "kite icon not found").into_response()
+}
+
+async fn serve_wing_icon() -> impl IntoResponse {
+    let manifest_dir = env!("CARGO_MANIFEST_DIR");
+    let candidates = [
+        format!("{}/static/wing-icon.svg", manifest_dir),
+        "server/static/wing-icon.svg".to_string(),
+        "static/wing-icon.svg".to_string(),
+    ];
+    for path in &candidates {
+        if let Ok(data) = std::fs::read_to_string(path) {
+            return axum::response::Response::builder()
+                .header(header::CONTENT_TYPE, "image/svg+xml")
+                .body(axum::body::Body::from(data))
+                .unwrap()
+                .into_response();
+        }
+    }
+    (StatusCode::NOT_FOUND, "wing icon not found").into_response()
+}
+
+async fn serve_kitegear_js() -> impl IntoResponse {
+    let manifest_dir = env!("CARGO_MANIFEST_DIR");
+    let candidates = [
+        format!("{}/../kite-gear/pkg/kite_gear.js", manifest_dir),
+        "kite-gear/pkg/kite_gear.js".to_string(),
+    ];
+    for path in &candidates {
+        if let Ok(data) = std::fs::read_to_string(path) {
+            return axum::response::Response::builder()
+                .header(header::CONTENT_TYPE, "application/javascript")
+                .body(axum::body::Body::from(data))
+                .unwrap()
+                .into_response();
+        }
+    }
+    (StatusCode::NOT_FOUND, "kite-gear.js not found").into_response()
+}
+
+async fn serve_kitegear_wasm() -> impl IntoResponse {
+    let manifest_dir = env!("CARGO_MANIFEST_DIR");
+    let candidates = [
+        format!("{}/../kite-gear/pkg/kite_gear_bg.wasm", manifest_dir),
+        "kite-gear/pkg/kite_gear_bg.wasm".to_string(),
+    ];
+    for path in &candidates {
+        if let Ok(data) = std::fs::read(path) {
+            return axum::response::Response::builder()
+                .header(header::CONTENT_TYPE, "application/wasm")
+                .body(axum::body::Body::from(data))
+                .unwrap()
+                .into_response();
+        }
+    }
+    (StatusCode::NOT_FOUND, "kite-gear.wasm not found").into_response()
 }
 
 async fn subscribe(

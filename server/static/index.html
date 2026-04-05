@@ -58,11 +58,18 @@
       color: var(--pico-muted-color); font-weight: 600; font-size: 0.72rem;
     }
     #forecast-table td { padding: 0.2rem 0.35rem; }
+    #forecast-table th:nth-child(2),
+    #forecast-table td:nth-child(2) {
+      width: 92px;
+      max-width: 92px;
+      box-sizing: border-box;
+      padding-inline: 0.25rem 0.05rem;
+    }
     #forecast-table th.forecast-col-ratio,
     #forecast-table td.forecast-ratio-cell {
-      width: 2.35rem;
-      max-width: 2.35rem;
-      padding-inline: 0.12rem;
+      width: 72px;
+      max-width: 72px;
+      padding-inline: 0.05rem 0.12rem;
       text-align: center;
       box-sizing: border-box;
     }
@@ -77,13 +84,30 @@
       font-weight: 600;
       font-variant-numeric: tabular-nums;
     }
-    #forecast-table tr.day-sep td {
+    #forecast-table tr.forecast-day-row td {
       border-top: 1px solid var(--pico-muted-border-color);
-      padding-top: 0.5rem;
+      padding: 0.45rem 0.35rem 0.2rem;
+      text-align: left;
+      vertical-align: bottom;
+      color: var(--pico-muted-color);
+      font-size: 0.72rem;
+    }
+    #forecast-table tbody > tr.forecast-day-row:first-child td {
+      border-top: none;
+      padding-top: 0.15rem;
+    }
+    #forecast-table tr.forecast-day-row strong {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--pico-color);
+    }
+    #forecast-table tr.forecast-live-row td {
+      border-bottom: 1px solid var(--pico-muted-border-color);
+      padding-bottom: 0.4rem;
     }
     /* Left accent: base hue from row class; brightness mixes white by gust/avg ratio */
     #forecast-table tr.forecast-row td:first-child {
-      border-left: 2px solid color-mix(in srgb, var(--row-accent-base), white var(--gust-bright, 0%));
+      border-left: 1px solid color-mix(in srgb, var(--row-accent-base), white var(--gust-bright, 0%));
     }
     #forecast-table tr.windy {
       background: rgba(45, 184, 212, 0.08);
@@ -123,11 +147,52 @@
     .version-row .doc-link:hover {
       text-decoration: underline;
     }
+
+    /* rider weight input */
+    .weight-row {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.8rem;
+      color: var(--pico-muted-color);
+      margin-bottom: 0.75rem;
+    }
+    .weight-row input[type="number"] {
+      width: 4rem;
+      padding: 0.15rem 0.3rem;
+      font-size: 0.8rem;
+      border: 1px solid var(--pico-muted-border-color);
+      border-radius: var(--pico-border-radius);
+      background: transparent;
+      color: inherit;
+      margin: 0;
+    }
+    .weight-row .weight-edit-btn {
+      background: none;
+      border: none;
+      color: var(--pico-primary);
+      cursor: pointer;
+      padding: 0;
+      font-size: 0.8rem;
+      line-height: 1;
+    }
+
+    /* gear cell in forecast table */
+    .gear-cell { white-space: nowrap; font-size: 0.72rem; }
+    .gear-cell img { height: 1em; vertical-align: middle; opacity: 0.85; margin-right: 0.05rem; }
   </style>
 </head>
 <body>
   <h1><img src="/logo.png" alt="KiteAgent Logo" title="KiteAgent">KiteAgent</h1>
   <p class="subtitle">Windy Point, Lake Travis — Kite Forecast Alerts</p>
+
+  <div class="weight-row" id="weight-row" style="display:none">
+    <span>Rider:</span>
+    <span id="weight-label" style="cursor:pointer"></span>
+    <input id="weight-input" type="number" min="30" max="180" step="1" style="display:none" placeholder="kg">
+    <button class="weight-edit-btn" id="weight-edit" title="Edit weight">&#9998;</button>
+    <button class="weight-edit-btn" id="weight-clear" title="Reset weight to 80 kg" style="display:none">&times;</button>
+  </div>
 
   <article id="push-alerts">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap">
@@ -172,6 +237,121 @@
   <script>
     const VAPID_PUBLIC_KEY = '__VAPID_PUBLIC_KEY__';
     const LIVE_ENABLED = __LIVE_ENABLED__;
+
+    // ── Rider weight (localStorage, default 80 kg) ───────────────────────────
+
+    const DEFAULT_RIDER_WEIGHT_KG = '80';
+    let kitegear = null;
+    let riderWeight = localStorage.getItem('rider_weight_kg');
+    if (riderWeight === null || riderWeight === '') {
+      riderWeight = DEFAULT_RIDER_WEIGHT_KG;
+      localStorage.setItem('rider_weight_kg', riderWeight);
+    }
+
+    const weightRow = document.getElementById('weight-row');
+    const weightLabel = document.getElementById('weight-label');
+    const weightInput = document.getElementById('weight-input');
+    const weightEditBtn = document.getElementById('weight-edit');
+    const weightClearBtn = document.getElementById('weight-clear');
+
+    function showWeightDisplay() {
+      if (riderWeight) {
+        weightLabel.textContent = riderWeight + ' kg';
+        weightLabel.style.display = '';
+        weightInput.style.display = 'none';
+        weightEditBtn.textContent = '\u270E';
+        weightClearBtn.style.display = riderWeight !== DEFAULT_RIDER_WEIGHT_KG ? '' : 'none';
+      } else {
+        weightLabel.style.display = 'none';
+        weightInput.style.display = '';
+        weightInput.value = '';
+        weightInput.focus();
+        weightEditBtn.textContent = '\u270E';
+        weightClearBtn.style.display = 'none';
+      }
+      weightRow.style.display = 'flex';
+    }
+
+    function commitWeight(val) {
+      const n = parseInt(val, 10);
+      if (n >= 30 && n <= 180) {
+        riderWeight = String(n);
+        localStorage.setItem('rider_weight_kg', riderWeight);
+        showWeightDisplay();
+        loadKitegearAndRefresh();
+      } else if (!val || val === '') {
+        clearWeight();
+      }
+    }
+
+    function clearWeight() {
+      riderWeight = DEFAULT_RIDER_WEIGHT_KG;
+      localStorage.setItem('rider_weight_kg', riderWeight);
+      showWeightDisplay();
+      loadKitegearAndRefresh();
+    }
+
+    weightEditBtn.addEventListener('click', () => {
+      if (weightInput.style.display === 'none') {
+        weightLabel.style.display = 'none';
+        weightInput.style.display = '';
+        weightInput.value = riderWeight || '';
+        weightClearBtn.style.display = (riderWeight && riderWeight !== DEFAULT_RIDER_WEIGHT_KG) ? '' : 'none';
+        weightInput.focus();
+      } else {
+        commitWeight(weightInput.value);
+      }
+    });
+
+    weightClearBtn.addEventListener('click', clearWeight);
+
+    weightInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') commitWeight(weightInput.value);
+    });
+    weightInput.addEventListener('blur', () => {
+      if (weightInput.value) commitWeight(weightInput.value);
+      else if (riderWeight) showWeightDisplay();
+    });
+
+    weightLabel.addEventListener('click', () => {
+      weightLabel.style.display = 'none';
+      weightInput.style.display = '';
+      weightInput.value = riderWeight || '';
+      weightInput.focus();
+    });
+
+    async function loadKitegearAndRefresh() {
+      if (!riderWeight) return;
+      if (!kitegear) {
+        try {
+          const mod = await import('/kite-gear.js');
+          await mod.default({ module_or_path: '/kite-gear.wasm' });
+          kitegear = mod;
+        } catch (e) {
+          console.warn('kitegear WASM not available:', e);
+          return;
+        }
+      }
+      loadForecast();
+    }
+
+    showWeightDisplay();
+    loadKitegearAndRefresh();
+
+    function gearCell(windKn) {
+      if (!kitegear || !riderWeight) return '<td></td>';
+      const w = parseFloat(riderWeight);
+      const kite = kitegear.kite_size(windKn, w);
+      const wing = kitegear.wing_size(windKn, w);
+      const parts = [];
+      if (kite > 0) {
+        parts.push(`<img src="/kite-icon.png" alt="Kite" width="16" height="16" decoding="async"> ${kite}`);
+      }
+      if (wing > 0) {
+        parts.push(`<img src="/wing-icon.svg" alt="Wing" width="16" height="16" decoding="async"> ${wing}`);
+      }
+      return `<td class="gear-cell">${parts.join(' ')}</td>`;
+    }
 
     async function urlBase64ToUint8Array(base64String) {
       const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -548,14 +728,14 @@
           const gustKn = liveData.wind_hi_kn ?? 0;
           const dir = liveData.wind_direction_deg ?? 0;
           const liveStripe = forecastRowAttrs('rideable', gustKn, windKn);
-          rows += `<tr class="forecast-row rideable day-sep" style="background:color-mix(in srgb, var(--pico-primary) 18%, transparent);${liveStripe.trStyle}">
+          rows += `<tr class="forecast-row rideable forecast-live-row" style="background:color-mix(in srgb, var(--pico-primary) 18%, transparent);${liveStripe.trStyle}">
             <td><strong>Now</strong><br><span style="font-size:0.7rem;color:var(--pico-muted-color)">live</span></td>
             <td><span class="wind-val">${Math.round(windKn)}</span> <span class="gust-val">↑${Math.round(gustKn)}</span> kts</td>
             <td class="forecast-ratio-cell">${liveStripe.windGustRatioLabel}</td>
             <td>${bearing(dir)}</td>
             <td>${liveData.temperature_f != null ? Math.round(liveData.temperature_f) + '°F' : '—'}</td>
             <td>◉</td>
-            <td></td>
+            ${gearCell(windKn)}
           </tr>`;
         }
         let lastDay = '';
@@ -565,16 +745,18 @@
           lastDay = day;
 
           const rideClass = h.rideable ? 'rideable' : (h.wind_kn >= 8 ? 'windy' : 'calm');
-          const sepClass = isSep ? ' day-sep' : '';
           const stripe = forecastRowAttrs(rideClass, h.gusts_kn, h.wind_kn);
-          rows += `<tr class="forecast-row ${rideClass}${sepClass}" style="${stripe.trStyle}">
-            <td>${isSep ? `<strong>${day}</strong><br>` : ''}${fmtTimeSpot(h.time)}</td>
+          if (isSep) {
+            rows += `<tr class="forecast-day-row"><td colspan="7"><strong>${day}</strong></td></tr>`;
+          }
+          rows += `<tr class="forecast-row ${rideClass}" style="${stripe.trStyle}">
+            <td>${fmtTimeSpot(h.time)}</td>
             <td><span class="wind-val">${Math.round(h.wind_kn)}</span> <span class="gust-val">↑${Math.round(h.gusts_kn)}</span> kts</td>
             <td class="forecast-ratio-cell">${stripe.windGustRatioLabel}</td>
             <td>${bearing(h.dir_deg)}</td>
             <td>${h.temp_c != null ? Math.round(h.temp_c) + '°C' : '—'}</td>
             <td>${wmoIcon(h.wmo)}</td>
-            ${h.rideable ? '<td><img src="/logo.png" alt="KiteAgent Logo" title="KiteAgent" style="height:1.2em;vertical-align:left"></td>' : (h.wind_kn >= 8 ? '<td><img src="/logo.png" alt="KiteAgent Logo" title="KiteAgent" style="height:1.2em;vertical-align:middle;opacity:0.9"></td>' : '<td></td>')}
+            ${gearCell(h.wind_kn)}
           </tr>`;
         }
 
