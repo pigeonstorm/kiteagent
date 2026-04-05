@@ -1666,6 +1666,7 @@ dependencies = [
  "axum-test",
  "base64 0.22.1",
  "chrono",
+ "kiteagent-agent",
  "kiteagent-shared",
  "openssl",
  "reqwest",

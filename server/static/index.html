@@ -32,9 +32,21 @@ __SEO_ABSOLUTE__
       --pico-block-spacing: 0.75rem;
     }
     body { max-width: 40rem; margin: 0 auto; padding: 1rem 0.75rem; }
+    .page-top {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.35rem 1rem;
+      align-items: start;
+      margin-bottom: 1rem;
+    }
+    @media (max-width: 520px) {
+      .page-top { grid-template-columns: 1fr; }
+      .weight-row { justify-content: flex-end; }
+    }
+    .page-top-brand { min-width: 0; }
     h1 { margin-bottom: 0.05rem; display: flex; align-items: center; gap: 0.5rem; }
     h1 img { height: 1.5rem; width: auto; }
-    .subtitle { color: var(--pico-muted-color); font-size: 0.875rem; margin-bottom: 1rem; }
+    .subtitle { color: var(--pico-muted-color); font-size: 0.875rem; margin: 0; }
     #status { font-size: 0.875rem; }
 
     /* status rows */
@@ -45,6 +57,14 @@ __SEO_ABSOLUTE__
     }
     .info-row:last-child { border-bottom: none; }
     .info-row span:last-child { color: var(--pico-muted-color); font-size: 0.8rem; }
+    #update-info .info-row span:last-child {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      text-align: right;
+    }
 
     /* next rideable window callout */
     .next-window {
@@ -71,16 +91,16 @@ __SEO_ABSOLUTE__
     #forecast-table td { padding: 0.2rem 0.35rem; }
     #forecast-table th:nth-child(2),
     #forecast-table td:nth-child(2) {
-      width: 92px;
-      max-width: 92px;
+      width: 80px;
+      max-width: 80px;
       box-sizing: border-box;
-      padding-inline: 0.25rem 0.05rem;
+      padding-inline: 0.12rem 0.05rem;
     }
     #forecast-table th.forecast-col-ratio,
     #forecast-table td.forecast-ratio-cell {
-      width: 72px;
-      max-width: 72px;
-      padding-inline: 0.05rem 0.12rem;
+      width: 64px;
+      max-width: 64px;
+      padding-inline: 0.02rem 0.06rem;
       text-align: center;
       box-sizing: border-box;
     }
@@ -150,8 +170,13 @@ __SEO_ABSOLUTE__
       color: var(--pico-muted-color);
       text-align: left;
     }
-    .version-row .doc-link {
+    .version-row-links {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
       flex-shrink: 0;
+    }
+    .version-row .doc-link {
       color: var(--pico-primary);
       text-decoration: none;
     }
@@ -159,14 +184,15 @@ __SEO_ABSOLUTE__
       text-decoration: underline;
     }
 
-    /* rider weight input */
+    /* rider weight input (top right of .page-top) */
     .weight-row {
       display: flex;
       align-items: center;
       gap: 0.4rem;
       font-size: 0.8rem;
       color: var(--pico-muted-color);
-      margin-bottom: 0.75rem;
+      margin: 0;
+      padding-top: 0.15rem;
     }
     .weight-row input[type="number"] {
       width: 4rem;
@@ -189,20 +215,29 @@ __SEO_ABSOLUTE__
     }
 
     /* gear cell in forecast table */
+    #forecast-table th:last-child,
+    #forecast-table td.gear-cell {
+      box-sizing: border-box;
+      min-width: 58px;
+      padding-inline: 0.12rem 0.2rem;
+    }
     .gear-cell { white-space: nowrap; font-size: 0.72rem; }
     .gear-cell img { height: 1em; vertical-align: middle; opacity: 0.85; margin-right: 0.05rem; }
   </style>
 </head>
 <body>
-  <h1><img src="/logo.png" alt="KiteAgent Logo" title="KiteAgent">KiteAgent</h1>
-  <p class="subtitle">Windy Point, Lake Travis — Kite Forecast Alerts</p>
-
-  <div class="weight-row" id="weight-row" style="display:none">
-    <span>Rider:</span>
-    <span id="weight-label" style="cursor:pointer"></span>
-    <input id="weight-input" type="number" min="30" max="180" step="1" style="display:none" placeholder="kg">
-    <button class="weight-edit-btn" id="weight-edit" title="Edit weight">&#9998;</button>
-    <button class="weight-edit-btn" id="weight-clear" title="Reset weight to 80 kg" style="display:none">&times;</button>
+  <div class="page-top">
+    <div class="page-top-brand">
+      <h1><img src="/logo.png" alt="KiteAgent Logo" title="KiteAgent">KiteAgent</h1>
+      <p class="subtitle">Windy Point, Lake Travis — Kite Forecast Alerts</p>
+    </div>
+    <div class="weight-row" id="weight-row" style="display:none">
+      <span>Rider:</span>
+      <span id="weight-label" style="cursor:pointer"></span>
+      <input id="weight-input" type="number" min="30" max="180" step="1" style="display:none" placeholder="kg">
+      <button class="weight-edit-btn" id="weight-edit" title="Edit weight">&#9998;</button>
+      <button class="weight-edit-btn" id="weight-clear" title="Reset weight to 80 kg" style="display:none">&times;</button>
+    </div>
   </div>
 
   <article id="push-alerts">
@@ -239,12 +274,16 @@ __SEO_ABSOLUTE__
 
   <div class="version-row">
     <small class="version">KiteAgent 1.0.1 · Windy Point, Lake Travis</small>
-    <a class="doc-link" href="/doc">/doc</a>
+    <div class="version-row-links">
+      <a class="doc-link" href="/status">/status</a>
+      <a class="doc-link" href="/doc">/doc</a>
+    </div>
   </div>
 
   <script>
     const VAPID_PUBLIC_KEY = '__VAPID_PUBLIC_KEY__';
     const LIVE_ENABLED = __LIVE_ENABLED__;
+    const IS_ADMIN = __IS_ADMIN__;
 
     // ── Rider weight (localStorage, default 80 kg) ───────────────────────────
 
@@ -655,7 +694,10 @@ __SEO_ABSOLUTE__
         html += infoRow('Live', liveRes?.scraped_at ? `${reltime(liveRes.scraped_at)} - <a href="${stationUrl}" rel="noopener noreferrer" target="_blank" style="color:var(--pico-primary)">ARL:UT Lake Travis</a>` : '—');
         if (d.last_analysis) {
           const a = d.last_analysis;
-          html += infoRow('Last analysis', reltime(a.at));
+          const analyzeBtn = IS_ADMIN
+            ? '<button type="button" class="outline status-analyze-btn" title="Re-run rideable-window analysis on the latest forecast" style="font-size:0.65rem;padding:0.08rem 0.4rem;line-height:1.2;margin:0;flex-shrink:0">Run</button>'
+            : '';
+          html += infoRow('Last analysis', `${reltime(a.at)}${analyzeBtn}`);
           html += infoRow('Rideable windows', String(a.windows_found));
           if (a.next_window?.start) {
             const w = a.next_window;
@@ -783,11 +825,37 @@ __SEO_ABSOLUTE__
       }
     }
 
-    // ── Pull button (admin only) ───────────────────────────────────────────────
+    // ── Pull + analyze (admin only) ───────────────────────────────────────────
 
-    const isAdmin = __IS_ADMIN__;
     const userParam = new URLSearchParams(location.search).get('user') ?? '';
-    if (isAdmin) document.getElementById('pull-btn').style.display = '';
+    if (IS_ADMIN) document.getElementById('pull-btn').style.display = '';
+
+    document.getElementById('update-info').addEventListener('click', async (e) => {
+      const btn = e.target.closest('.status-analyze-btn');
+      if (!btn || btn.disabled) return;
+      e.preventDefault();
+      const q = new URLSearchParams(location.search).get('user') ?? '';
+      if (!q) {
+        alert('Add ?user=… (same as user.name in config) to run analysis.');
+        return;
+      }
+      btn.disabled = true;
+      const prev = btn.textContent;
+      btn.textContent = '…';
+      try {
+        const res = await fetch(`/analyze?user=${encodeURIComponent(q)}`, { method: 'POST' });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(d.error || res.statusText);
+        await loadForecast();
+        await loadStatus();
+      } catch (err) {
+        console.error(err);
+        alert(err.message || String(err));
+      } finally {
+        btn.disabled = false;
+        btn.textContent = prev;
+      }
+    });
 
     document.getElementById('pull-btn').addEventListener('click', async () => {
       const btn = document.getElementById('pull-btn');

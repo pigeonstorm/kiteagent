@@ -2,8 +2,11 @@ use wasm_bindgen::prelude::*;
 
 const REF_WEIGHT_KG: f64 = 80.0;
 
+/// Reference weight 80 kg → factor `1.0`. Heavier riders get a **larger** factor, so the same
+/// true wind is compared against higher effective thresholds → **larger** recommended kite (m²).
+/// Lighter riders get a smaller factor → smaller kite for the same wind.
 fn weight_factor(rider_kg: f64) -> f64 {
-    REF_WEIGHT_KG / rider_kg
+    rider_kg / REF_WEIGHT_KG
 }
 
 /// Kite size (m^2) for the given wind and rider weight.

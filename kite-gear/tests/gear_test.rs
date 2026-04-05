@@ -28,37 +28,57 @@ fn wing_80kg_step_table() {
 }
 
 #[test]
-fn heavier_rider_gets_smaller_kite_number_at_same_wind() {
+fn heavier_rider_gets_larger_kite_at_same_wind() {
     let heavy = kite_size(18.0, 100.0);
     let ref_size = kite_size(18.0, 80.0);
-    assert!(heavy <= ref_size, "100 kg @ 18 kn should step down to same or smaller kite size number");
+    assert!(
+        heavy >= ref_size,
+        "heavier rider should get same or larger kite (m²) at the same wind"
+    );
 }
 
 #[test]
-fn lighter_rider_gets_larger_kite_number_at_same_wind() {
+fn lighter_rider_gets_smaller_kite_at_same_wind() {
     let light = kite_size(18.0, 60.0);
     let ref_size = kite_size(18.0, 80.0);
-    assert!(light >= ref_size, "60 kg @ 18 kn should remain at same or larger kite size number");
+    assert!(
+        light <= ref_size,
+        "lighter rider should get same or smaller kite (m²) at the same wind"
+    );
 }
 
 #[test]
-fn heavier_rider_shifts_breakpoints_down() {
-    // 100 kg rider: breakpoints scale by 80/100 = 0.8
-    // The 12 kn breakpoint becomes 9.6 kn, so 10 kn should yield 12m (not 14m)
-    assert_eq!(kite_size(10.0, 100.0), 12.0);
-    assert_eq!(kite_size(10.0, 80.0), 14.0);
+fn heavier_rider_needs_more_wind_to_downsize_kite() {
+    // f = rider/80: at 12 kn, 80 kg is in the 12 m² band; 100 kg still in 14 m² (more power needed before dropping a size).
+    assert_eq!(kite_size(12.0, 100.0), 14.0);
+    assert_eq!(kite_size(12.0, 80.0), 12.0);
 }
 
 #[test]
-fn lighter_rider_shifts_breakpoints_up() {
-    // 60 kg rider: breakpoints scale by 80/60 = 1.333
-    // The 12 kn breakpoint becomes 16 kn, so 14 kn should yield 14m
-    assert_eq!(kite_size(14.0, 60.0), 14.0);
+fn lighter_rider_downsizes_kite_earlier() {
+    // Same wind: lighter rider is already in a smaller-kite band than 80 kg reference.
+    assert_eq!(kite_size(14.0, 60.0), 9.0);
     assert_eq!(kite_size(14.0, 80.0), 12.0);
+}
+
+/// At 15 kn, heavier riders sit in larger-kite bands (`weight_factor = rider_kg / 80`).
+#[test]
+fn kite_size_100kg_vs_50kg_same_wind() {
+    const W: f64 = 15.0;
+    for r in [50.0, 55.0, 60.0] {
+        assert_eq!(kite_size(W, r), 7.0, "{r} kg @ {W} kn");
+    }
+    for r in [65.0, 70.0, 75.0, 80.0] {
+        assert_eq!(kite_size(W, r), 9.0, "{r} kg @ {W} kn");
+    }
+    for r in [85.0, 90.0, 95.0, 100.0] {
+        assert_eq!(kite_size(W, r), 12.0, "{r} kg @ {W} kn");
+    }
+    assert!(kite_size(W, 100.0) > kite_size(W, 50.0));
 }
 
 #[test]
 fn below_min_wind_returns_zero() {
-    assert_eq!(kite_size(5.0, 80.0), 0.0);
-    assert_eq!(wing_size(5.0, 80.0), 0.0);
+    assert_eq!(kite_size(4.0, 80.0), 0.0);
+    assert_eq!(wing_size(4.0, 80.0), 0.0);
 }

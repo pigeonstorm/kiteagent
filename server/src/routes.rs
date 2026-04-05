@@ -6,6 +6,8 @@ use axum::{
     Json, Router,
 };
 use std::collections::HashMap;
+use kiteagent_agent::conditions::evaluate;
+use kiteagent_agent::weather::{parse_open_meteo, OpenMeteoResponse};
 use kiteagent_shared::{Config, Db};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -96,6 +98,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/status", get(status))
         .route("/forecast", get(forecast))
         .route("/pull", post(pull_forecast))
+        .route("/analyze", post(analyze_forecast))
         .route("/live", get(proxy_live))
         .layer(CorsLayer::permissive())
         .with_state(state)
@@ -553,6 +556,80 @@ async fn pull_forecast(
         Err(e) => {
             tracing::error!(%e, "pull: DB insert failed");
             (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response()
+        }
+    }
+}
+
+async fn analyze_forecast(
+    Query(params): Query<HashMap<String, String>>,
+    State(state): State<Arc<AppState>>,
+) -> impl IntoResponse {
+    let user = params.get("user").map(|u| u.trim().to_lowercase()).unwrap_or_default();
+    let is_admin = !user.is_empty() && user == state.config.user.name.trim().to_lowercase();
+    if !is_admin {
+        return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error": "forbidden"}))).into_response();
+    }
+
+    let row = match state.db.last_forecast() {
+        Ok(Some(r)) => r,
+        _ => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({"error": "no forecast data"})),
+            )
+                .into_response()
+        }
+    };
+
+    let om: OpenMeteoResponse = match serde_json::from_str(&row.raw_json) {
+        Ok(v) => v,
+        Err(e) => {
+            tracing::error!(%e, "analyze: parse forecast JSON failed");
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({"error": format!("invalid forecast JSON: {e}")})),
+            )
+                .into_response();
+        }
+    };
+
+    let forecast = parse_open_meteo(om);
+    let windows = evaluate(&forecast, &state.config);
+    let result_json = match serde_json::to_string(&windows) {
+        Ok(s) => s,
+        Err(e) => {
+            tracing::error!(%e, "analyze: serialize windows failed");
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": e.to_string()})),
+            )
+                .into_response();
+        }
+    };
+
+    let analyzed_at = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string();
+    match state.db.insert_analysis_run(
+        row.id,
+        &analyzed_at,
+        windows.len() as i32,
+        &result_json,
+    ) {
+        Ok(id) => {
+            tracing::info!(analysis_id = id, windows = windows.len(), "manual analyze succeeded");
+            Json(serde_json::json!({
+                "ok": true,
+                "analyzed_at": analyzed_at,
+                "windows_found": windows.len(),
+            }))
+            .into_response()
+        }
+        Err(e) => {
+            tracing::error!(%e, "analyze: DB insert failed");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": e.to_string()})),
+            )
+                .into_response()
         }
     }
 }
