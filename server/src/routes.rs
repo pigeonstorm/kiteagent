@@ -81,6 +81,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/logo.png", get(serve_logo))
         .route("/logo-32.png", get(serve_logo_32))
         .route("/logo-180.png", get(serve_logo_180))
+        .route("/logo-512.png", get(serve_logo_512))
         .route("/kite-icon.png", get(serve_kite_icon))
         .route("/wing-icon.svg", get(serve_wing_icon))
         .route("/kite-gear.js", get(serve_kitegear_js))
@@ -230,6 +231,27 @@ async fn serve_logo_180() -> impl IntoResponse {
         format!("{}/static/logo-180.png", manifest_dir),
         "server/static/logo-180.png".to_string(),
         "static/logo-180.png".to_string(),
+    ];
+
+    for path in &candidates {
+        if let Ok(data) = std::fs::read(path) {
+            return axum::response::Response::builder()
+                .header(header::CONTENT_TYPE, "image/png")
+                .body(axum::body::Body::from(data))
+                .unwrap()
+                .into_response();
+        }
+    }
+
+    (StatusCode::NOT_FOUND, "logo not found").into_response()
+}
+
+async fn serve_logo_512() -> impl IntoResponse {
+    let manifest_dir = env!("CARGO_MANIFEST_DIR");
+    let candidates = [
+        format!("{}/static/logo-512.png", manifest_dir),
+        "server/static/logo-512.png".to_string(),
+        "static/logo-512.png".to_string(),
     ];
 
     for path in &candidates {
