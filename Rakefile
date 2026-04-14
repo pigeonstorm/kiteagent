@@ -39,13 +39,38 @@ def spawn_all_prod
 end
 
 def kill_pids(pids)
+  return if pids.nil? || pids.empty?
+
   pids.each { |pid| Process.kill("TERM", pid) rescue nil }
 end
 
+# Match `cargo run -p …` and release binaries; no-op if nothing is running.
+def kill_kiteagent_stack
+  %w[kiteagent-server hrrr-server live-server kiteagent-agent].each do |name|
+    system("pkill", "-TERM", "-f", name)
+  end
+end
+
 # Prime local SQLite before services start (Windy Point HRRR cache + one live scrape).
+# NOMADS can return 403/404 from WAF or timing; failing pulls must not abort `rake run`.
 def dev_initial_pulls
-  sh HRRR_DEV, "pull"
-  sh LIVE_DEV, "pull"
+  if ENV["SKIP_INITIAL_PULLS"] == "1"
+    puts "[rake] Skipping initial pulls (SKIP_INITIAL_PULLS=1)."
+    return
+  end
+
+  begin
+    sh HRRR_DEV, "pull"
+  rescue StandardError => e
+    warn "[rake] hrrr-server pull failed (continuing): #{e.message.strip}"
+    warn "[rake] After services start, try: #{HRRR_DEV} pull   or   SKIP_INITIAL_PULLS=1 rake run"
+  end
+
+  begin
+    sh LIVE_DEV, "pull"
+  rescue StandardError => e
+    warn "[rake] live-server pull failed (continuing): #{e.message.strip}"
+  end
 end
 
 # HTTP port from [server] bind in config.toml (e.g. 0.0.0.0:8080 → 8080).
@@ -134,6 +159,8 @@ HELP_TEXT = <<~HELP
   CONVENIENCE
 
     rake run         Alias for dev:run
+    SKIP_INITIAL_PULLS=1 rake run   Skip hrrr/live CLI pulls (NOMADS down or slow)
+    rake stop        SIGTERM stack (server, hrrr, live, agent); use if ports still busy
     rake build       Release build
     rake kite-gear   Build kite-gear WASM (wasm-pack → kite-gear/pkg/; needed for /kite-gear.js)
     rake wasm        Same as kite-gear
@@ -170,13 +197,16 @@ namespace :dev do
 
   desc "Run all services (server, hrrr, live, agent in bg)"
   task run: [:build, :"kite-gear"] do
-    dev_initial_pulls
-    pids = spawn_all_dev
-    dev_print_service_urls
-    at_exit { kill_pids(pids) }
-    sleep
-  ensure
-    kill_pids(pids)
+    pids = []
+    begin
+      dev_initial_pulls
+      pids = spawn_all_dev
+      dev_print_service_urls
+      at_exit { kill_pids(pids) }
+      sleep
+    ensure
+      kill_pids(pids)
+    end
   end
 
   desc "Dev mode: auto-reload server + agent (original dev flow)"
@@ -203,11 +233,14 @@ namespace :prod do
 
   desc "Run all services (release binaries)"
   task run: [:build] do
-    pids = spawn_all_prod
-    at_exit { kill_pids(pids) }
-    sleep
-  ensure
-    kill_pids(pids)
+    pids = []
+    begin
+      pids = spawn_all_prod
+      at_exit { kill_pids(pids) }
+      sleep
+    ensure
+      kill_pids(pids)
+    end
   end
 end
 
@@ -238,6 +271,12 @@ task wasm: :"kite-gear"
 
 desc "Run all services (dev mode). Use: rake dev:run"
 task run: "dev:run"
+
+desc "Stop stack processes (kiteagent-server, hrrr-server, live-server, kiteagent-agent)"
+task :stop do
+  kill_kiteagent_stack
+  puts "Sent SIGTERM to stack processes (OK if none were running)."
+end
 
 desc "Start the push server (foreground, dev mode)"
 task server: :"kite-gear" do

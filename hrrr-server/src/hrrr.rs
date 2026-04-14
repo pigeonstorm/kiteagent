@@ -1,11 +1,13 @@
 use anyhow::{Context, Result};
 use chrono::{Timelike, Utc};
+use reqwest::StatusCode;
 use serde::Serialize;
 use std::io::Cursor;
 use tracing::{debug, warn};
 
 const NOMADS_FILTER: &str = "https://nomads.ncep.noaa.gov/cgi-bin/filter_hrrr_2d.pl";
-const MAX_CONCURRENT: usize = 10;
+/// Keep low: parallel bursts against NOMADS/Akamai often yield HTTP 403.
+const MAX_CONCURRENT: usize = 4;
 const NOMADS_RETRY: usize = 2;
 
 #[derive(Debug, Clone, Serialize)]
@@ -67,8 +69,8 @@ fn build_nomads_url(run: &HrrrRun, fh: u32, lat: f64, lon: f64) -> String {
         "{NOMADS_FILTER}\
          ?file=hrrr.t{:02}z.wrfsfcf{:02}.grib2\
          &var_UGRD=on&var_VGRD=on&var_GUST=on&var_TMP=on\
-         &var_CRAIN=on&var_CSNOW=on&var_CFRZR=on&var_CICEP=on\
-         &lev_10_m_above_ground=on&lev_surface=on&lev_2_m_above_ground=on\
+         &var_TCDC=on&var_CRAIN=on&var_CSNOW=on&var_CFRZR=on&var_CICEP=on\
+         &lev_10_m_above_ground=on&lev_surface=on&lev_2_m_above_ground=on&lev_boundary_layer_cloud_layer=on\
          &subregion=&leftlon={:.2}&rightlon={:.2}&toplat={:.2}&bottomlat={:.2}\
          &dir=%2Fhrrr.{}%2Fconus",
         run.cycle,
@@ -105,6 +107,8 @@ fn extract_values_from_grib2(data: &[u8]) -> Result<GribValues> {
     let mut csnow: Option<f64> = None;
     let mut cfrzr: Option<f64> = None;
     let mut cicep: Option<f64> = None;
+    let mut tcdc: Option<f64> = None;
+    let mut tcdc_fallback: Option<f64> = None;
 
     for (_idx, submsg) in grib2.iter() {
         let prod = submsg.prod_def();
@@ -153,6 +157,13 @@ fn extract_values_from_grib2(data: &[u8]) -> Result<GribValues> {
             (Some(1), Some(193), Some(1), _) => cfrzr = Some(center_val),
             // CICEP (category=1, number=194, level_type=1)
             (Some(1), Some(194), Some(1), _) => cicep = Some(center_val),
+            // Total cloud cover % (category=6, number=1), prefer entire atmosphere (level_type=10)
+            (Some(6), Some(1), Some(10), _) => tcdc = Some(center_val),
+            (Some(6), Some(1), _, _) => {
+                if tcdc_fallback.is_none() {
+                    tcdc_fallback = Some(center_val);
+                }
+            }
             _ => {}
         }
     }
@@ -166,6 +177,7 @@ fn extract_values_from_grib2(data: &[u8]) -> Result<GribValues> {
         csnow,
         cfrzr,
         cicep,
+        tcdc: tcdc.or(tcdc_fallback),
     })
 }
 
@@ -179,6 +191,8 @@ struct GribValues {
     csnow: Option<f64>,
     cfrzr: Option<f64>,
     cicep: Option<f64>,
+    /// Total cloud cover 0–100 % (GRIB category 6.1).
+    tcdc: Option<f64>,
 }
 
 impl GribValues {
@@ -192,7 +206,13 @@ impl GribValues {
         let gust_kn = self.gust.map(|g| g * MPS_TO_KN).unwrap_or(speed_kn);
         let temp_c = self.tmp_k.map(|k| k - 273.15);
 
-        let wmo = synthesize_wmo(self.crain, self.csnow, self.cfrzr, self.cicep);
+        let wmo = synthesize_weather_code(
+            self.crain,
+            self.csnow,
+            self.cfrzr,
+            self.cicep,
+            self.tcdc,
+        );
 
         HourlySlot {
             time: time.to_string(),
@@ -205,22 +225,46 @@ impl GribValues {
     }
 }
 
-fn synthesize_wmo(
+/// WMO codes 0–3 from total cloud cover when dry (ECMWF-style buckets used by Open-Meteo).
+fn wmo_from_cloud_cover_pct(cloud_pct: Option<f64>) -> u32 {
+    let c = cloud_pct.unwrap_or(0.0).clamp(0.0, 100.0);
+    if c <= 6.0 {
+        0
+    } else if c <= 25.0 {
+        1
+    } else if c <= 87.0 {
+        2
+    } else {
+        3
+    }
+}
+
+/// Derive WMO weather code (Open-Meteo / WMO 4677 style) from HRRR categorical precip and optional total cloud cover.
+pub fn synthesize_weather_code(
     crain: Option<f64>,
     csnow: Option<f64>,
     cfrzr: Option<f64>,
     cicep: Option<f64>,
+    tcdc_pct: Option<f64>,
 ) -> u32 {
     let rain = crain.unwrap_or(0.0) > 0.5;
     let snow = csnow.unwrap_or(0.0) > 0.5;
     let frzr = cfrzr.unwrap_or(0.0) > 0.5;
     let icep = cicep.unwrap_or(0.0) > 0.5;
 
-    if frzr { return 66; }
-    if icep { return 67; }
-    if snow { return 71; }
-    if rain { return 61; }
-    0
+    if frzr {
+        return 66;
+    }
+    if icep {
+        return 67;
+    }
+    if snow {
+        return 71;
+    }
+    if rain {
+        return 61;
+    }
+    wmo_from_cloud_cover_pct(tcdc_pct)
 }
 
 async fn download_one(
@@ -240,6 +284,10 @@ async fn download_one(
                 let status = resp.status();
                 if status.is_server_error() {
                     warn!(attempt, status = %status, "NOMADS 5xx, retrying");
+                    continue;
+                }
+                if status == StatusCode::FORBIDDEN {
+                    warn!(attempt, status = %status, "NOMADS 403, retrying");
                     continue;
                 }
                 anyhow::bail!("NOMADS returned {status}");
@@ -346,4 +394,46 @@ pub fn to_openmeteo_json(
             "weathercode": codes,
         }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::synthesize_weather_code;
+
+    #[test]
+    fn dry_clear_cloud_buckets() {
+        assert_eq!(synthesize_weather_code(None, None, None, None, Some(0.0)), 0);
+        assert_eq!(synthesize_weather_code(None, None, None, None, Some(6.0)), 0);
+        assert_eq!(synthesize_weather_code(None, None, None, None, Some(7.0)), 1);
+        assert_eq!(synthesize_weather_code(None, None, None, None, Some(25.0)), 1);
+        assert_eq!(synthesize_weather_code(None, None, None, None, Some(26.0)), 2);
+        assert_eq!(synthesize_weather_code(None, None, None, None, Some(87.0)), 2);
+        assert_eq!(synthesize_weather_code(None, None, None, None, Some(88.0)), 3);
+        assert_eq!(synthesize_weather_code(None, None, None, None, Some(100.0)), 3);
+    }
+
+    #[test]
+    fn dry_missing_cloud_is_clear() {
+        assert_eq!(synthesize_weather_code(None, None, None, None, None), 0);
+    }
+
+    #[test]
+    fn precip_overrides_cloud() {
+        assert_eq!(
+            synthesize_weather_code(Some(1.0), None, None, None, Some(100.0)),
+            61
+        );
+        assert_eq!(
+            synthesize_weather_code(None, Some(1.0), None, None, Some(0.0)),
+            71
+        );
+        assert_eq!(
+            synthesize_weather_code(None, None, Some(1.0), None, Some(0.0)),
+            66
+        );
+        assert_eq!(
+            synthesize_weather_code(None, None, None, Some(1.0), Some(0.0)),
+            67
+        );
+    }
 }

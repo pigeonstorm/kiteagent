@@ -11,6 +11,7 @@ use tracing_subscriber::Layer;
 use kiteagent_agent::conditions::{evaluate, RideableWindow};
 use kiteagent_agent::live_wind::check_live_wind;
 use kiteagent_agent::notify::{send_morning_digest, send_opportunity_alert};
+use kiteagent_agent::scheduling::window_starts_within_hours;
 use kiteagent_agent::weather::fetch_forecast;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -56,15 +57,6 @@ async fn run_fetch_and_evaluate(
         }
     }
     Ok(())
-}
-
-fn window_starts_within_hours(start: &str, hours: i64, now: &chrono::DateTime<chrono::Utc>) -> bool {
-    let start_dt = match chrono::DateTime::parse_from_rfc3339(start) {
-        Ok(d) => d.with_timezone(&chrono::Utc),
-        Err(_) => return false,
-    };
-    let diff = start_dt - *now;
-    diff >= chrono::Duration::hours(0) && diff <= chrono::Duration::hours(hours)
 }
 
 async fn run_morning_digest(

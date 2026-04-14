@@ -3,7 +3,21 @@ pub mod hrrr;
 pub mod rate_limit;
 pub mod routes;
 
+use std::time::Duration;
 use tracing::error;
+
+/// NOMADS is fronted by Akamai; non-browser and many script UAs receive HTTP 403.
+pub const NOMADS_HTTP_USER_AGENT: &str = concat!(
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:128.0) ",
+    "Gecko/20100101 Firefox/128.0 hrrr-server/0.1"
+);
+
+pub fn http_client_for_nomads(timeout: Duration) -> anyhow::Result<reqwest::Client> {
+    Ok(reqwest::Client::builder()
+        .timeout(timeout)
+        .user_agent(NOMADS_HTTP_USER_AGENT)
+        .build()?)
+}
 
 pub struct AppState {
     pub db: db::Db,

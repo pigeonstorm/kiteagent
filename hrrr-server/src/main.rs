@@ -2,16 +2,14 @@ use anyhow::Result;
 use axum::middleware;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 use tracing::info;
 
 use hrrr_server::{db, rate_limit, routes, AppState};
 
 async fn run_pull_cli(db_path: &str) -> Result<()> {
     let db = db::Db::open(db_path)?;
-    let http = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(120))
-        .user_agent("hrrr-server/0.1 (pigeonstorm.com)")
-        .build()?;
+    let http = hrrr_server::http_client_for_nomads(Duration::from_secs(120))?;
 
     let (run, hours, _) = hrrr_server::pull_forecast_cache(
         &http,
@@ -68,10 +66,7 @@ async fn main() -> Result<()> {
 
     let db = db::Db::open(&db_path)?;
 
-    let http = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(30))
-        .user_agent("hrrr-server/0.1 (pigeonstorm.com)")
-        .build()?;
+    let http = hrrr_server::http_client_for_nomads(Duration::from_secs(30))?;
 
     let state = Arc::new(AppState { db, http });
 
