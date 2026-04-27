@@ -485,7 +485,13 @@ async fn push(State(state): State<Arc<AppState>>, req: Request) -> impl IntoResp
     for sub in &subs {
         match send_push(&sub.endpoint, &sub.p256dh, &sub.auth, &push_str, &state.vapid, &state.web_push).await {
             Ok(()) => {}
-            Err(web_push::WebPushError::EndpointNotValid) => {
+            Err(
+                web_push::WebPushError::EndpointNotValid
+                | web_push::WebPushError::EndpointNotFound
+                | web_push::WebPushError::InvalidUri
+                | web_push::WebPushError::MissingCryptoKeys
+                | web_push::WebPushError::InvalidCryptoKeys,
+            ) => {
                 tracing::warn!(endpoint = %sub.endpoint, "stale subscription, removing");
                 stale.push(sub.endpoint.clone());
             }
