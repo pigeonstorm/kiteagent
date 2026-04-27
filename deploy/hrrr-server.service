@@ -1,16 +1,17 @@
 [Unit]
-Description=KiteAgent Push Server
-After=network.target hrrr-server.service live-server.service
+Description=HRRR forecast cache HTTP server
+After=network.target
 
 [Service]
 Type=simple
 User=kiteagent
 Group=kiteagent
 WorkingDirectory=/opt/kiteagent
-ExecStart=/opt/kiteagent/kiteagent-server
+ExecStart=/opt/kiteagent/hrrr-server /opt/kiteagent/hrrr.db
 Restart=always
 RestartSec=5
 Environment=RUST_LOG=info
+Environment=BIND=0.0.0.0:8081
 
 [Install]
 WantedBy=multi-user.target

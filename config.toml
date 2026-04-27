@@ -18,12 +18,13 @@ sizes = [3.5, 4.5, 5.5]
 
 [notification]
 method = "webpush"
-server_url = "https://bot.pigeonstorm.com"
+server_url = "https://ka.pigeonstorm.com"
 push_secret = "a646a9d2084901df274afa1d9a904a6a24a920e0203b53b6b0b19a2c495c5f42"
 
 [server]
 bind = "0.0.0.0:8080"
 vapid_subject = "mailto:root@pigeonstorm.com"
+public_base_url = "https://ka.pigeonstorm.com"
 hrrr_url = "http://localhost:8081"
 
 [schedule]

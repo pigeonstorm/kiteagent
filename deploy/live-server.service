@@ -1,0 +1,18 @@
+[Unit]
+Description=Live Lake Travis conditions (HTTP + gRPC)
+After=network.target
+
+[Service]
+Type=simple
+User=kiteagent
+Group=kiteagent
+WorkingDirectory=/opt/kiteagent
+ExecStart=/opt/kiteagent/live-server /opt/kiteagent/live.db
+Restart=always
+RestartSec=5
+Environment=RUST_LOG=info
+Environment=BIND=0.0.0.0:8082
+Environment=GRPC_BIND=0.0.0.0:50051
+
+[Install]
+WantedBy=multi-user.target

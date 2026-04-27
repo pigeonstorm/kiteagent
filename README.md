@@ -56,7 +56,7 @@ cargo build --release
 | hrrr-server | `http://localhost:8081` | `BIND` (default `0.0.0.0:8081`) |
 | live-server HTTP | `http://localhost:8082` | `BIND` (default `0.0.0.0:8082`) |
 | live-server gRPC | `http://localhost:50051` | `GRPC_BIND` (default `0.0.0.0:50051`) |
-| Push / notification target | `http://localhost:8080` | `notification.server_url` |
+| Push / notification target | `http://localhost:8080` (dev) / `https://ka.pigeonstorm.com` (prod) | `notification.server_url` |
 | HRRR forecast (fallback) | `https://hrrr.pigeonstorm.com` | `server.hrrr_url` (when unset) |
 | Agent forecast fetch | `http://localhost:8081/forecast` (debug) / `https://hrrr.pigeonstorm.com/forecast` (release) | compile-time in agent |
 | ARL:UT station (scraped) | [ARL:UT Lake Travis weather station](https://wwwext.arlut.utexas.edu/weather/lake/) | fixed in live-server |
@@ -74,7 +74,7 @@ Edit `config.toml` to set:
 ## Setup on Phone
 
 1. Serve the app over HTTPS (required for Web Push). See `deploy/README.md`.
-2. Open `https://your-domain/` in your browser.
+2. Open `https://ka.pigeonstorm.com/` in your browser.
 3. Tap "Enable Kite Alerts" and allow notifications.
 4. On iOS: add the page to Home Screen first (PWA), then enable notifications.
 
