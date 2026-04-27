@@ -7,8 +7,8 @@ Requires=kiteagent-server.service
 Type=simple
 User=kiteagent
 Group=kiteagent
-WorkingDirectory=/opt/kiteagent
-ExecStart=/opt/kiteagent/kiteagent-agent /opt/kiteagent/config.toml
+WorkingDirectory=/app/kiteagent
+ExecStart=/app/kiteagent/target/release/kiteagent-agent /app/kiteagent/config.toml
 Restart=always
 RestartSec=5
 Environment=RUST_LOG=info

@@ -6,8 +6,8 @@ After=network.target hrrr-server.service live-server.service
 Type=simple
 User=kiteagent
 Group=kiteagent
-WorkingDirectory=/opt/kiteagent
-ExecStart=/opt/kiteagent/kiteagent-server
+WorkingDirectory=/app/kiteagent
+ExecStart=/app/kiteagent/target/release/kiteagent-server
 Restart=always
 RestartSec=5
 Environment=RUST_LOG=info
