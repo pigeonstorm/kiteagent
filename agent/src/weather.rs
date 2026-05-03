@@ -3,10 +3,37 @@ use kiteagent_shared::{Config, Db};
 use serde::Deserialize;
 use tracing::{error, info, warn};
 
+/// When `config.toml` has `[server] hrrr_url`, the agent uses that (typical on the same host as
+/// `hrrr-server`, e.g. `http://127.0.0.1:8081`). Otherwise: debug → localhost, release → public.
+fn forecast_endpoint(cfg: &Config) -> String {
+    let from_config = cfg
+        .server
+        .hrrr_url
+        .as_ref()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty());
+
+    if let Some(base) = from_config {
+        let b = base.trim_end_matches('/');
+        if b.ends_with("/forecast") {
+            b.to_string()
+        } else {
+            format!("{}/forecast", b)
+        }
+    } else {
+        default_forecast_url().to_string()
+    }
+}
+
 #[cfg(debug_assertions)]
-const OPEN_METEO_URL: &str = "http://localhost:8081/forecast";
+fn default_forecast_url() -> &'static str {
+    "http://localhost:8081/forecast"
+}
+
 #[cfg(not(debug_assertions))]
-const OPEN_METEO_URL: &str = "https://hrrr.pigeonstorm.com/forecast";
+fn default_forecast_url() -> &'static str {
+    "https://hrrr.pigeonstorm.com/forecast"
+}
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct OpenMeteoResponse {
@@ -143,9 +170,10 @@ pub async fn fetch_forecast(
     db: &Db,
     client: &reqwest::Client,
 ) -> Result<(Forecast, i64)> {
+    let base = forecast_endpoint(cfg);
     let url = format!(
         "{}?latitude={}&longitude={}&hourly=windspeed_10m,winddirection_10m,windgusts_10m,temperature_2m,weathercode&wind_speed_unit=kn&forecast_days=2&timezone=America/Chicago",
-        OPEN_METEO_URL,
+        base,
         cfg.location.lat,
         cfg.location.lon
     );
@@ -156,14 +184,14 @@ pub async fn fetch_forecast(
     for attempt in 1..=MAX_ATTEMPTS {
         if attempt > 1 {
             let delay = RETRY_DELAYS_SECS[(attempt - 2) as usize];
-            warn!(attempt, delay_secs = delay, "retrying Open-Meteo fetch");
+            warn!(attempt, delay_secs = delay, "retrying HRRR forecast fetch");
             tokio::time::sleep(tokio::time::Duration::from_secs(delay)).await;
         }
 
         let resp = match client.get(&url).send().await {
             Ok(r) => r,
             Err(e) => {
-                let msg = format!("Open-Meteo HTTP request failed: {}", e);
+                let msg = format!("HRRR forecast HTTP request failed: {}", e);
                 warn!(attempt, error = %msg, "transient request error");
                 last_err = Some(msg);
                 continue;
@@ -173,9 +201,9 @@ pub async fn fetch_forecast(
         let status = resp.status();
 
         if status.is_success() {
-            let raw_json = resp.text().await.context("read Open-Meteo response body")?;
+            let raw_json = resp.text().await.context("read HRRR forecast response body")?;
             let json: OpenMeteoResponse =
-                serde_json::from_str(&raw_json).context("parse Open-Meteo JSON")?;
+                serde_json::from_str(&raw_json).context("parse HRRR forecast JSON")?;
             let forecast = parse_open_meteo(json);
             let valid_from = forecast.valid_from().unwrap_or("");
             let valid_to = forecast.valid_to().unwrap_or("");
@@ -203,7 +231,7 @@ pub async fn fetch_forecast(
         }
 
         let body = resp.text().await.unwrap_or_default();
-        let err_msg = format!("Open-Meteo returned {}: {}", status, body);
+        let err_msg = format!("HRRR forecast returned {}: {}", status, body);
 
         if status.is_server_error() {
             warn!(attempt, error = %err_msg, "transient server error, will retry");
@@ -212,13 +240,13 @@ pub async fn fetch_forecast(
         }
 
         // Non-retriable error (4xx etc.) — log and bail immediately.
-        error!(source = "open-meteo", error = %err_msg, "fetch failed (non-retriable)");
+        error!(source = "hrrr", error = %err_msg, "fetch failed (non-retriable)");
         db.insert_error("weather_fetch", &err_msg, None)?;
         anyhow::bail!("{}", err_msg);
     }
 
     let err_msg = last_err.unwrap_or_else(|| "unknown error".to_string());
-    error!(source = "open-meteo", error = %err_msg, "fetch failed after all retries");
+    error!(source = "hrrr", error = %err_msg, "fetch failed after all retries");
     db.insert_error("weather_fetch", &err_msg, None)?;
     anyhow::bail!("{}", err_msg);
 }

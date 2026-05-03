@@ -57,8 +57,8 @@ cargo build --release
 | live-server HTTP | `http://localhost:8082` | `BIND` (default `0.0.0.0:8082`) |
 | live-server gRPC | `http://localhost:50051` | `GRPC_BIND` (default `0.0.0.0:50051`) |
 | Push / notification target | `http://localhost:8080` (dev) / `https://ka.pigeonstorm.com` (prod) | `notification.server_url` |
-| HRRR forecast (fallback) | `https://hrrr.pigeonstorm.com` | `server.hrrr_url` (when unset) |
-| Agent forecast fetch | `http://localhost:8081/forecast` (debug) / `https://hrrr.pigeonstorm.com/forecast` (release) | compile-time in agent |
+| Agent + server `/pull` → HRRR | `{hrrr_url}/forecast` when `[server] hrrr_url` is set (e.g. `http://127.0.0.1:8081` on EC2) | `server.hrrr_url` |
+| HRRR forecast (defaults if `hrrr_url` omitted) | debug: `http://localhost:8081/forecast`; release: `https://hrrr.pigeonstorm.com/forecast` | optional `server.hrrr_url` overrides |
 | ARL:UT station (scraped) | [ARL:UT Lake Travis weather station](https://wwwext.arlut.utexas.edu/weather/lake/) | fixed in live-server |
 | NOAA NOMADS (HRRR GRIB) | `https://nomads.ncep.noaa.gov/cgi-bin/filter_hrrr_2d.pl` | fixed in hrrr-server |
 

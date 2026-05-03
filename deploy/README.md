@@ -84,6 +84,15 @@ sudo chmod +x /app/kiteagent/target/release/kiteagent-agent /app/kiteagent/targe
 
 Databases are created on first use under `/app/kiteagent/` (e.g. `hrrr.db`, `live.db`) as configured in the unit files.
 
+**`kiteagent-agent` and HRRR:** the agent fetches forecast JSON from `{hrrr_url}/forecast`. On the same instance as `hrrr-server`, set in `config.toml`:
+
+```toml
+[server]
+hrrr_url = "http://127.0.0.1:8081"
+```
+
+so the agent uses the local listener instead of `https://hrrr.pigeonstorm.com` (avoids DNS/TLS/routing failures when the public name does not reach this host).
+
 ### Install or refresh systemd units (on the remote machine)
 
 After the four `*.service` files are in your home directory on the instance (via `scp` above, or copy them there some other way), SSH in and run:

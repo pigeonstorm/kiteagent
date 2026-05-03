@@ -69,7 +69,8 @@ pub struct NotificationConfig {
 pub struct ServerConfig {
     pub bind: String,
     pub vapid_subject: String,
-    /// HRRR forecast API base URL (e.g. http://localhost:8081). Used by /pull.
+    /// HRRR API base (e.g. `http://127.0.0.1:8081`, no path). Sets where the **agent** fetches
+    /// forecast JSON in release; omit to use the public default. The server’s `/pull` also uses this.
     #[serde(default)]
     pub hrrr_url: Option<String>,
     /// Public site URL (e.g. https://example.com) for canonical link, Open Graph, and JSON-LD. No trailing slash.
