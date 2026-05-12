@@ -25,7 +25,7 @@ push_secret = "a646a9d2084901df274afa1d9a904a6a24a920e0203b53b6b0b19a2c495c5f42"
 bind = "0.0.0.0:8080"
 vapid_subject = "mailto:root@pigeonstorm.com"
 public_base_url = "https://ka.pigeonstorm.com"
-hrrr_url = "http://localhost:8081"
+hrrr_url = "http://127.0.0.1:8081"
 
 [schedule]
 fetch_interval_min = 60
@@ -48,5 +48,5 @@ log_dir = "logs"
 log_days = 30
 
 [live]
-grpc_url = "http://localhost:50051"
-http_url = "http://localhost:8082"
+grpc_url = "http://127.0.0.1:50051"
+http_url = "http://127.0.0.1:8082"
