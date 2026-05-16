@@ -25,15 +25,12 @@ fn forecast_endpoint(cfg: &Config) -> String {
     }
 }
 
-#[cfg(debug_assertions)]
+// #[cfg(debug_assertions)]
 fn default_forecast_url() -> &'static str {
     "http://localhost:8081/forecast"
 }
 
-#[cfg(not(debug_assertions))]
-fn default_forecast_url() -> &'static str {
-    "https://hrrr.pigeonstorm.com/forecast"
-}
+// const OPEN_METEO_URL: &str = "https://localhost:8081/forecast";
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct OpenMeteoResponse {
