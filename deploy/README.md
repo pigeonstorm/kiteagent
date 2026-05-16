@@ -99,10 +99,10 @@ After the four `*.service` files are in your home directory on the instance (via
 
 ```bash
 sudo install -m 644 \
-  ~/hrrr-server.service \
-  ~/live-server.service \
-  ~/kiteagent-server.service \
-  ~/kiteagent-agent.service \
+  hrrr-server.service \
+  live-server.service \
+  kiteagent-server.service \
+  kiteagent-agent.service \
   /etc/systemd/system/
 
 sudo systemctl daemon-reload

@@ -5,8 +5,8 @@ Requires=kiteagent-server.service
 
 [Service]
 Type=simple
-User=kiteagent
-Group=kiteagent
+User=admin
+Group=admin
 WorkingDirectory=/app/kiteagent
 ExecStart=/app/kiteagent/target/release/kiteagent-agent /app/kiteagent/config.toml
 Restart=always
