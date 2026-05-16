@@ -37,9 +37,15 @@ pub fn select_run(forecast_days: u32) -> HrrrRun {
     let needed_fh: u32 = if forecast_days >= 2 { 48 } else { 18 };
 
     if needed_fh > 18 {
+        // Extended hours (f19–f48) finish publishing ~110 min after the cycle,
+        // well after the f01–f18 batch. Require that age before trusting f48.
+        const EXTENDED_READY_MIN: i64 = 110;
         let extended_cycles = [18, 12, 6, 0];
+        let minutes_since = |cycle: u32| -> i64 {
+            (utc_hour as i64 - cycle as i64) * 60 + now.minute() as i64
+        };
         for &cycle in &extended_cycles {
-            if utc_hour > cycle || (utc_hour == cycle && now.minute() >= 50) {
+            if minutes_since(cycle) >= EXTENDED_READY_MIN {
                 return HrrrRun {
                     date: now.format("%Y%m%d").to_string(),
                     cycle,
