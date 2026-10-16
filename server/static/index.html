@@ -279,12 +279,13 @@ __SEO_ABSOLUTE__
       appearance: none; -webkit-appearance: none; width: 42px; height: 24px; border: 2.5px solid var(--ink);
       border-radius: 999px; background: var(--calm); position: relative; cursor: pointer; margin: 0; flex-shrink: 0;
     }
+    /* knob = full track height, so its outline sits exactly on the track's outline at either end */
     .toggle input::after {
-      content: ''; position: absolute; top: 2px; left: 2px; width: 15px; height: 15px; border-radius: 50%;
-      background: #fff; border: 2px solid var(--ink); transition: left .15s;
+      content: ""; position: absolute; box-sizing: border-box; top: -2.5px; left: -2.5px; width: 24px; height: 24px; border-radius: 50%;
+      background: #fff; border: 2.5px solid var(--ink); transition: left .15s;
     }
     .toggle input:checked { background: var(--green); }
-    .toggle input:checked::after { left: 20px; }
+    .toggle input:checked::after { left: 15.5px; }
     .tile .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: auto; padding-top: 10px; }
     .kv { font-size: 13px; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 0; border-top: 2px dashed var(--rule); }
     .kv:first-child { border-top: none; }
