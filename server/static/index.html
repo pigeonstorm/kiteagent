@@ -186,12 +186,15 @@ __SEO_ABSOLUTE__
       background: var(--green); color: #14121a; text-transform: uppercase; letter-spacing: .05em;
     }
     .burst {
-      position: absolute; right: 26px; top: 10px; width: 156px; height: 172px; display: grid; place-items: center;
-      color: #fff; text-align: center; font-size: 24px; line-height: .95; transform: rotate(4deg);
-      filter: drop-shadow(3px 3px 0 var(--ink));
+      position: absolute; right: 22px; top: 14px; width: 118px; height: 118px; border-radius: 50%;
+      display: grid; place-items: center; text-align: center; color: #fff; font-size: 25px; line-height: .95;
+      border: var(--bw) solid var(--ink); transform: rotate(-8deg);
+      background:
+        radial-gradient(circle at 30% 24%, rgba(255, 255, 255, .95) 0 7%, rgba(255, 255, 255, 0) 20%),
+        radial-gradient(circle at 34% 30%, #9ae9f8 0%, #37c1dd 38%, #1a8fa6 78%, #12687b 100%);
+      box-shadow: inset -7px -9px 0 rgba(8, 60, 80, .28), 4px 4px 0 var(--ink);
     }
-    .burst svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-    .burst span { position: relative; padding: 0 0 26px 0; -webkit-text-stroke: 1px var(--ink); text-shadow: 2px 2px 0 var(--ink); }
+    .burst span { -webkit-text-stroke: 1px var(--ink); text-shadow: 2px 2px 0 var(--ink); padding: 4px 0 0 0; }
 
     /* ── hourly strip ───────────────────────────────────────────────────── */
     .strip { padding: 14px 0 14px 14px; }
@@ -277,11 +280,11 @@ __SEO_ABSOLUTE__
       border-radius: 999px; background: var(--calm); position: relative; cursor: pointer; margin: 0; flex-shrink: 0;
     }
     .toggle input::after {
-      content: ''; position: absolute; top: 1px; left: 1px; width: 16px; height: 16px; border-radius: 50%;
+      content: ''; position: absolute; top: 2px; left: 2px; width: 15px; height: 15px; border-radius: 50%;
       background: #fff; border: 2px solid var(--ink); transition: left .15s;
     }
     .toggle input:checked { background: var(--green); }
-    .toggle input:checked::after { left: 19px; }
+    .toggle input:checked::after { left: 20px; }
     .tile .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: auto; padding-top: 10px; }
     .kv { font-size: 13px; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 0; border-top: 2px dashed var(--rule); }
     .kv:first-child { border-top: none; }
@@ -298,8 +301,7 @@ __SEO_ABSOLUTE__
       .chip.icon { width: 40px; }
       .now .big { font-size: 104px; }
       .caption { font-size: 10px; }
-      .burst { width: 108px; height: 120px; font-size: 16px; right: 18px; top: 8px; }
-      .burst span { padding-bottom: 18px; }
+      .burst { width: 96px; height: 96px; font-size: 18px; right: 12px; top: 10px; }
       .bubble { font-size: 16px; }
       .tile .val { font-size: 38px; }
       .gear-line .display { font-size: 30px; }
@@ -888,7 +890,7 @@ __SEO_ABSOLUTE__
       const kn = win.avg_kn ?? 0;
       const g = gearFor(kn);
       story = ` Rideable window <b>${weekdaySpot(win.start)} ${shortHour(win.start)}–${shortHour(win.end)}</b>, avg <b>${Math.round(kn)} kts</b> from the ${bearing(win.dir_deg ?? 0)}.`;
-      if (g?.kite > 0) story += ` Rig the <b>${g.kite} m</b> kite.`;
+      if (g?.kite > 0) story += ` Rig a <b>${g.kite} m</b> kite${g.wing > 0 ? ` or <b>${g.wing} m</b> wing` : ''}.`;
       badges = (win.disciplines || []).map((d) => `<span class="badge">${d}</span>`).join('');
       burst = `IT'S<br>ON!`;
     } else if (best && best.wind_kn >= 12) {
@@ -896,7 +898,7 @@ __SEO_ABSOLUTE__
       const g = gearFor(best.wind_kn);
       story = ` No rideable window yet. Best shot: <b>${weekdaySpot(best.time)} ${shortHour(best.time)}</b> with <b>${Math.round(best.wind_kn)}↑${Math.round(best.gusts_kn)} kts</b> from the ${bearing(best.dir_deg)}`;
       story += r > 1.8 ? ', but very gusty.' : '.';
-      if (g?.kite > 0) story += ` That's a <b>${g.kite} m</b> kite.`;
+      if (g?.kite > 0) story += ` That's a <b>${g.kite} m</b> kite${g.wing > 0 ? ` or <b>${g.wing} m</b> wing` : ''}.`;
       if (best.wind_kn >= 15) burst = `${weekdaySpot(best.time).toUpperCase()}<br>${Math.round(best.wind_kn)} KTS!`;
     } else if (best) {
       story = ` Light all the way to ${weekdaySpot(hours[hours.length - 1].time)}: max <b>${Math.round(best.wind_kn)} kts</b>. Rest day!`;
@@ -911,7 +913,7 @@ __SEO_ABSOLUTE__
         ${now.tempC != null ? `<div class="row">🌡 ${Math.round(now.tempC)}°C</div>` : ''}
       </div>
       <div class="bubble">${(lead + story).trim()}${badges ? `<div class="badges">${badges}</div>` : ''}</div>
-      ${burst ? `<div class="burst display"><svg viewBox="0 0 100 110" aria-hidden="true"><path d="M50 78 L22 96 M50 78 L78 96" stroke="var(--ink)" stroke-width="2.5" stroke-linecap="round" fill="none"/><path d="M3 62 C3 28 34 6 70 6 C84 6 94 10 99 17 C92 28 91 44 78 60 C66 74 52 80 38 80 C18 80 3 76 3 62 Z" fill="#2fb8d4" stroke="var(--ink)" stroke-width="4" stroke-linejoin="round"/><path d="M14 58 C20 38 40 22 66 17" fill="none" stroke="#a6edf9" stroke-width="5" stroke-linecap="round"/><path d="M30 78 C32 54 48 30 78 12" fill="none" stroke="var(--ink)" stroke-width="2.5" stroke-linecap="round" opacity=".5"/><path d="M52 79 C58 58 72 38 94 24" fill="none" stroke="var(--ink)" stroke-width="2.5" stroke-linecap="round" opacity=".5"/></svg><span>${burst}</span></div>` : ''}`;
+      ${burst ? `<div class="burst display"><span>${burst}</span></div>` : ''}`;
   }
 
   function renderStrip(now, hours, emptyMsg) {
