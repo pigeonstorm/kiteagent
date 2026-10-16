@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>KiteAgent — Windy Point, Lake Travis</title>
   <meta name="description" content="Kitesurf forecast alerts for Windy Point, Lake Travis (Austin, TX). Rideable wind windows, gear suggestions, and optional Web Push notifications.">
   <meta name="robots" content="index, follow">
-  <meta name="theme-color" content="#0d0d0d">
+  <meta name="theme-color" id="theme-color" content="#fff4d6">
   <meta property="og:type" content="website">
   <meta property="og:title" content="KiteAgent — Windy Point, Lake Travis">
   <meta property="og:description" content="Kitesurf forecast alerts for Windy Point, Lake Travis (Austin, TX). Rideable wind windows, gear suggestions, and optional Web Push notifications.">
@@ -21,937 +21,1103 @@ __SEO_ABSOLUTE__
   <link rel="icon" href="/logo-32.png" sizes="32x32">
   <link rel="apple-touch-icon" href="/logo-180.png" sizes="180x180">
   <link rel="manifest" href="/manifest.json">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@600;700;800;900&display=swap">
+  <script>
+    // Apply saved theme before first paint (no flash).
+    try { const t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch {}
+  </script>
   <style>
-    :root { 
-      --pico-background-color: #051a2c; 
-      --pico-primary: #1a9fb5;
-      --pico-primary-background: rgba(26, 159, 181, 0.1);
-      --pico-primary-inverse: #051a2c;
-      --pico-muted-border-color: rgba(26, 159, 181, 0.2);
-      --pico-block-spacing: 0.75rem;
+    /* ── tokens ─────────────────────────────────────────────────────────── */
+    :root {
+      --paper: #fff4d6; --dot: rgba(20, 18, 26, .10);
+      --panel: #fffdf7; --text: #14121a; --muted: #6b6577; --rule: rgba(20, 18, 26, .18);
+      --ink: #14121a; --on-color: #14121a;
+      --yellow: #ffd23f; --cyan: #3ec6ff; --pink: #ff5c8a; --green: #49dc8a;
+      --orange: #ff9f1c; --red: #ff4b3e; --calm: #ece5d2;
+      --r: 16px; --bw: 3px; --sh: 5px;
+      color-scheme: light;
     }
-    body { max-width: 40rem; margin: 0 auto; padding: 1rem 0.75rem; }
-    .page-top {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 0.35rem 1rem;
-      align-items: start;
-      margin-bottom: 1rem;
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --paper: #1c1933; --dot: rgba(255, 255, 255, .06);
+        --panel: #2b2748; --text: #fbf7ff; --muted: #b3acc9; --rule: rgba(255, 255, 255, .16);
+        --ink: #07060d; --calm: #3a3558;
+        color-scheme: dark;
+      }
     }
-    @media (max-width: 520px) {
-      .page-top { grid-template-columns: 1fr; }
-      .weight-row { justify-content: flex-end; }
-    }
-    .page-top-brand { min-width: 0; }
-    h1 { margin-bottom: 0.05rem; display: flex; align-items: center; gap: 0.5rem; }
-    h1 img { height: 1.5rem; width: auto; }
-    .subtitle { color: var(--pico-muted-color); font-size: 0.875rem; margin: 0; }
-    #status { font-size: 0.875rem; }
-
-    /* status rows */
-    .info-row {
-      display: flex; justify-content: space-between;
-      border-bottom: 1px solid var(--pico-muted-border-color);
-      padding: 0.1rem 0; font-size: 0.875rem;
-    }
-    .info-row:last-child { border-bottom: none; }
-    .info-row span:last-child { color: var(--pico-muted-color); font-size: 0.8rem; }
-    #update-info .info-row span:last-child {
-      display: flex;
-      align-items: center;
-      gap: 0.35rem;
-      flex-wrap: wrap;
-      justify-content: flex-end;
-      text-align: right;
+    :root[data-theme="dark"] {
+      --paper: #1c1933; --dot: rgba(255, 255, 255, .06);
+      --panel: #2b2748; --text: #fbf7ff; --muted: #b3acc9; --rule: rgba(255, 255, 255, .16);
+      --ink: #07060d; --calm: #3a3558;
+      color-scheme: dark;
     }
 
-    /* next rideable window callout */
-    .next-window {
-      margin-top: 0.5rem; padding: 0.5rem;
-      border-radius: var(--pico-border-radius);
-      background: color-mix(in srgb, var(--pico-primary) 10%, transparent);
-      border: 1px solid color-mix(in srgb, var(--pico-primary) 30%, transparent);
+    /* ── base ───────────────────────────────────────────────────────────── */
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0; color: var(--text);
+      font: 700 15px/1.35 Nunito, system-ui, -apple-system, sans-serif;
+      background-color: var(--paper);
+      background-image: radial-gradient(var(--dot) 1.3px, transparent 1.5px);
+      background-size: 11px 11px;
     }
-    .badges { margin-top: 0.4rem; display: flex; gap: 0.3rem; flex-wrap: wrap; }
+    a { color: inherit; }
+    button { font: inherit; color: inherit; }
+    .display { font-family: Bangers, Impact, sans-serif; font-weight: 400; letter-spacing: .04em; }
+    .muted { color: var(--muted); }
+    .wrap {
+      max-width: 1180px; margin: 0 auto;
+      padding: calc(12px + env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 32px max(16px, env(safe-area-inset-left));
+    }
+    .hidden { display: none !important; }
+
+    /* ── header ─────────────────────────────────────────────────────────── */
+    .top { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; position: relative; }
+    .brand { display: flex; align-items: center; gap: 8px; margin-right: auto; min-width: 0; text-decoration: none; }
+    .brand img { height: 32px; width: auto; filter: drop-shadow(2px 2px 0 var(--ink)); }
+    .brand h1 {
+      margin: 0; font-size: 32px; line-height: 1; color: var(--yellow);
+      -webkit-text-stroke: 1.5px var(--ink); text-shadow: 3px 3px 0 var(--ink);
+    }
+    .chip {
+      border: var(--bw) solid var(--ink); border-radius: 999px; background: var(--panel); color: var(--text);
+      box-shadow: 3px 3px 0 var(--ink); padding: 6px 12px; font-weight: 800; font-size: 14px;
+      cursor: pointer; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+      min-height: 42px; transition: transform .08s, box-shadow .08s;
+    }
+    .chip.icon { width: 42px; justify-content: center; padding: 0; font-size: 18px; }
+    .chip.on { background: var(--yellow); color: var(--on-color); }
+    .chip:active, .btn:active:not(:disabled) { transform: translate(3px, 3px); box-shadow: 0 0 0 var(--ink); }
+
+    /* rider popover */
+    .pop {
+      position: absolute; right: 0; top: calc(100% + 10px); z-index: 20; width: min(300px, calc(100vw - 32px));
+      background: var(--panel); border: var(--bw) solid var(--ink); border-radius: var(--r);
+      box-shadow: var(--sh) var(--sh) 0 var(--ink); padding: 14px; display: grid; gap: 12px;
+    }
+    .pop .field { display: flex; align-items: center; gap: 8px; }
+    .pop input[type="number"] {
+      width: 84px; font: 400 26px Bangers, sans-serif; letter-spacing: .04em; padding: 2px 8px;
+      border: var(--bw) solid var(--ink); border-radius: 10px; background: var(--paper); color: var(--text);
+    }
+    .link-btn { background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; font-size: 13px; color: var(--muted); }
+
+    /* ── panels ─────────────────────────────────────────────────────────── */
+    .grid { display: grid; gap: 18px; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-flow: dense; }
+    .panel {
+      background: var(--panel); border: var(--bw) solid var(--ink); border-radius: var(--r);
+      box-shadow: var(--sh) var(--sh) 0 var(--ink); padding: 14px; position: relative; min-width: 0;
+    }
+    .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+    .label {
+      display: inline-block; font-weight: 900; font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+      background: var(--ink); color: #fff; padding: 3px 8px; border-radius: 6px; transform: rotate(-1.5deg);
+    }
+    .panel > .label { margin-bottom: 10px; }
+    .hero, .strip, .days, .tile.data { grid-column: 1 / -1; }
+    .btn {
+      font: 400 20px Bangers, sans-serif; letter-spacing: .06em; background: var(--yellow); color: var(--on-color);
+      border: var(--bw) solid var(--ink); border-radius: 12px; box-shadow: 4px 4px 0 var(--ink);
+      padding: 7px 14px; cursor: pointer; min-height: 44px;
+    }
+    .btn.small { font-size: 15px; padding: 3px 10px; min-height: 32px; box-shadow: 3px 3px 0 var(--ink); border-width: 2.5px; }
+    .btn.plain { background: var(--panel); color: var(--text); }
+    .btn:disabled { opacity: .55; cursor: not-allowed; }
+    .btn[aria-busy="true"] { opacity: .7; cursor: progress; }
+    .note { font-size: 13px; line-height: 1.35; margin: 8px 0 0; }
+    .note.err { background: var(--red); color: #fff; border: 2px solid var(--ink); border-radius: 8px; padding: 4px 8px; }
+    .msg { color: var(--muted); padding: 6px 2px; }
+
+    /* ── hero ───────────────────────────────────────────────────────────── */
+    .hero {
+      background: var(--yellow); color: var(--on-color); overflow: hidden; padding: 18px;
+      display: grid; grid-template-columns: auto 1fr; gap: 4px 18px; align-items: center; align-content: start;
+    }
+    .hero::before {
+      content: ''; position: absolute; inset: 0; pointer-events: none;
+      background-image: radial-gradient(rgba(255, 92, 138, .35) 2px, transparent 2.4px);
+      background-size: 14px 14px;
+      -webkit-mask-image: linear-gradient(120deg, transparent 35%, #000);
+              mask-image: linear-gradient(120deg, transparent 35%, #000);
+    }
+    .hero > * { position: relative; }
+    .caption {
+      grid-column: 1 / -1; justify-self: start; max-width: calc(100% - 96px); background: #fff; color: #14121a;
+      border: var(--bw) solid var(--ink); padding: 4px 10px; font-weight: 900; font-size: 12px; letter-spacing: .1em;
+      text-transform: uppercase; box-shadow: 3px 3px 0 var(--ink); margin-bottom: 6px;
+    }
+    .now { display: flex; align-items: baseline; gap: 6px; }
+    .now .big {
+      font-size: 128px; line-height: .85; color: #fff; -webkit-text-stroke: 3px var(--ink);
+      text-shadow: 6px 6px 0 var(--ink);
+    }
+    .now .unit { font-size: 30px; }
+    .now-meta { display: flex; flex-direction: column; gap: 6px; font-size: 16px; }
+    .now-meta .row { display: flex; align-items: center; gap: 8px; }
+    .dir-badge {
+      width: 34px; height: 34px; border-radius: 50%; border: var(--bw) solid var(--ink); background: #fff;
+      display: grid; place-items: center; color: #14121a; flex-shrink: 0;
+    }
+    .bubble {
+      grid-column: 1 / -1; margin-top: 18px; background: #fff; color: #14121a; border: var(--bw) solid var(--ink);
+      border-radius: 22px; padding: 12px 16px; font-size: 17px; line-height: 1.4; position: relative;
+      box-shadow: 4px 4px 0 var(--ink);
+    }
+    .bubble::after {
+      content: ''; position: absolute; top: -17px; left: 46px; width: 22px; height: 18px;
+      background: #fff; border: var(--bw) solid var(--ink); border-bottom: none; border-right: none;
+      transform: skewX(35deg); border-radius: 2px 0 0 0;
+    }
+    .bubble b { background: var(--cyan); padding: 0 5px; border-radius: 5px; white-space: nowrap; }
+    .bubble .badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
     .badge {
-      font-size: 0.7rem; padding: 0.1rem 0.45rem;
-      border-radius: 999px;
-      background: var(--pico-primary-background);
-      color: var(--pico-primary-inverse);
+      font-size: 12px; font-weight: 900; padding: 1px 9px; border: 2px solid var(--ink); border-radius: 999px;
+      background: var(--green); color: #14121a; text-transform: uppercase; letter-spacing: .05em;
     }
+    .burst {
+      position: absolute; right: -8px; top: -6px; width: 150px; height: 150px; display: grid; place-items: center;
+      background: var(--pink); color: #fff; text-align: center; font-size: 22px; line-height: .95;
+      -webkit-text-stroke: 1px var(--ink); text-shadow: 2px 2px 0 var(--ink); transform: rotate(10deg);
+      clip-path: polygon(50% 0,61% 20%,82% 9%,79% 32%,100% 36%,84% 52%,98% 70%,75% 72%,73% 95%,55% 81%,40% 100%,33% 78%,10% 88%,17% 66%,0 55%,17% 42%,4% 22%,27% 22%,30% 2%,43% 18%);
+    }
+    .burst span { padding: 30px; }
 
-    /* forecast table */
-    #forecast-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
-    #forecast-table th {
-      text-align: left; padding: 0.2rem 0.35rem;
-      border-bottom: 1px solid var(--pico-muted-border-color);
-      color: var(--pico-muted-color); font-weight: 600; font-size: 0.72rem;
+    /* ── hourly strip ───────────────────────────────────────────────────── */
+    .strip { padding: 14px 0 14px 14px; }
+    .strip .panel-head { padding-right: 14px; }
+    .hours {
+      display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x proximity;
+      padding: 10px 14px 10px 2px; scrollbar-width: thin; overscroll-behavior-x: contain;
     }
-    #forecast-table td { padding: 0.2rem 0.35rem; }
-    #forecast-table th:nth-child(2),
-    #forecast-table td:nth-child(2) {
-      width: 80px;
-      max-width: 80px;
-      box-sizing: border-box;
-      padding-inline: 0.12rem 0.05rem;
+    .day-tag {
+      flex: 0 0 auto; writing-mode: vertical-rl; transform: rotate(180deg);
+      background: var(--ink); color: var(--yellow); font-size: 20px; border-radius: 10px; padding: 8px 4px;
+      text-align: center; letter-spacing: .08em;
     }
-    #forecast-table th.forecast-col-ratio,
-    #forecast-table td.forecast-ratio-cell {
-      width: 64px;
-      max-width: 64px;
-      padding-inline: 0.02rem 0.06rem;
-      text-align: center;
-      box-sizing: border-box;
-    }
-    #forecast-table th.forecast-col-ratio {
-      font-size: 0.62rem;
-      line-height: 1.15;
-      white-space: normal;
-      overflow-wrap: anywhere;
-    }
-    #forecast-table td.forecast-ratio-cell {
-      font-variant-numeric: tabular-nums;
-    }
-    #forecast-table tr.forecast-day-row td {
-      border-top: 1px solid var(--pico-muted-border-color);
-      padding: 0.45rem 0.35rem 0.2rem;
-      text-align: left;
-      vertical-align: bottom;
-      color: var(--pico-muted-color);
-      font-size: 0.72rem;
-    }
-    #forecast-table tbody > tr.forecast-day-row:first-child td {
-      border-top: none;
-      padding-top: 0.15rem;
-    }
-    #forecast-table tr.forecast-day-row strong {
-      font-size: 0.8rem;
-      font-weight: 600;
-      color: var(--pico-color);
-    }
-    #forecast-table tr.forecast-live-row td {
-      border-bottom: 1px solid var(--pico-muted-border-color);
-      padding-bottom: 0.4rem;
-    }
-    /* Left accent: base hue from row class; brightness mixes white by gust/avg ratio */
-    #forecast-table tr.forecast-row td:first-child {
-      border-left: 1px solid color-mix(in srgb, var(--row-accent-base), white var(--gust-bright, 0%));
-    }
-    #forecast-table tr.windy {
-      background: rgba(45, 184, 212, 0.08);
-    }
-    #forecast-table tr.rideable {
-      background: rgba(13, 122, 148, 0.18);
-    }
-    .wind-val { font-weight: 600; }
-    .gust-val { color: var(--pico-muted-color); font-size: 0.75rem; }
-    .fetch-meta { color: var(--pico-muted-color); font-size: 0.75rem; margin-bottom: 0.5rem; line-height: 1.4; }
-
-    /* forecast & status articles: reduce gap between header and content */
-    article:has(#forecast-info) header,
-    article:has(#update-info) header { margin-bottom: 0.25rem; }
-    #forecast-info, #update-info { margin-top: 0; margin-bottom: 0; }
-    #forecast-info table { margin-top: 0; margin-bottom: 0; }
-    article:has(#forecast-info) { padding-bottom: 0.25rem; }
-
-    .version-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 0.75rem;
-      margin-top: 1rem;
-      font-size: 0.7rem;
-    }
-    .version-row .version {
-      margin: 0;
-      color: var(--pico-muted-color);
-      text-align: left;
-    }
-    .version-row-links {
-      display: flex;
-      align-items: center;
-      gap: 0.65rem;
-      flex-shrink: 0;
-    }
-    .version-row .doc-link {
-      color: var(--pico-primary);
-      text-decoration: none;
-    }
-    .version-row .doc-link:hover {
-      text-decoration: underline;
-    }
-
-    /* rider weight input (top right of .page-top) */
-    .weight-row {
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
-      font-size: 0.8rem;
-      color: var(--pico-muted-color);
-      margin: 0;
-      padding-top: 0.15rem;
-    }
-    .weight-row input[type="number"] {
-      width: 4rem;
-      padding: 0.15rem 0.3rem;
-      font-size: 0.8rem;
-      border: 1px solid var(--pico-muted-border-color);
-      border-radius: var(--pico-border-radius);
-      background: transparent;
-      color: inherit;
-      margin: 0;
-    }
-    .weight-row .weight-edit-btn {
-      background: none;
-      border: none;
-      color: var(--pico-primary);
-      cursor: pointer;
-      padding: 0;
-      font-size: 0.8rem;
-      line-height: 1;
-    }
-    .foil-toggle {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.3rem;
-      font-size: 0.75rem;
-      color: var(--pico-muted-color);
-      cursor: pointer;
-      user-select: none;
-      margin-left: 0.3rem;
-    }
-    .foil-toggle input { display: none; }
-    .foil-switch {
+    .hour {
+      flex: 0 0 72px; scroll-snap-align: start; border: 2.5px solid var(--ink); border-radius: 14px;
+      padding: 8px 4px; text-align: center; background: var(--c); color: var(--on-color);
+      box-shadow: 3px 3px 0 var(--ink); display: flex; flex-direction: column; align-items: center; gap: 2px;
       position: relative;
-      width: 28px;
-      height: 16px;
-      background: var(--pico-muted-border-color);
-      border-radius: 8px;
-      transition: background 0.2s;
-      flex-shrink: 0;
     }
-    .foil-switch::after {
-      content: '';
-      position: absolute;
-      top: 2px;
-      left: 2px;
-      width: 12px;
-      height: 12px;
-      background: #fff;
-      border-radius: 50%;
-      transition: transform 0.2s;
+    .hour .t { font-size: 12px; font-weight: 900; }
+    .hour .sky { font-size: 20px; line-height: 1.2; }
+    .hour .w { font-family: Bangers, sans-serif; font-size: 30px; line-height: 1; letter-spacing: .02em; }
+    .hour .g { font-size: 12px; font-weight: 900; }
+    .hour .gear { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; }
+    .gchip {
+      display: inline-flex; align-items: center; gap: 2px; background: #fff; color: #14121a;
+      border: 2px solid var(--ink); border-radius: 999px; font-size: 11px; padding: 0 6px; font-weight: 900;
     }
-    .foil-toggle input:checked + .foil-switch {
-      background: var(--pico-primary);
+    .gchip img { height: 11px; width: auto; }
+    .hour.now-h { --c: #fff; color: #14121a; outline: 3px dashed var(--pink); outline-offset: 3px; margin-left: 4px; }
+    .hour .on {
+      position: absolute; top: -10px; right: -8px; background: var(--pink); color: #fff; font: 400 14px Bangers, sans-serif;
+      letter-spacing: .05em; border: 2px solid var(--ink); border-radius: 6px; padding: 0 5px; transform: rotate(8deg);
     }
-    .foil-toggle input:checked + .foil-switch::after {
-      transform: translateX(12px);
-    }
+    .w0 { --c: var(--calm); } .w1 { --c: var(--cyan); } .w2 { --c: var(--green); } .w3 { --c: var(--orange); } .w4 { --c: var(--red); }
+    .hour.w0 { color: var(--text); }
+    .legend { display: flex; gap: 10px; flex-wrap: wrap; font-size: 12px; color: var(--muted); padding-right: 14px; margin-top: 4px; }
+    .legend i { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--ink); border-radius: 4px; vertical-align: -2px; margin-right: 4px; background: var(--c); }
 
-    /* gear cell in forecast table */
-    #forecast-table th:last-child,
-    #forecast-table td.gear-cell {
-      box-sizing: border-box;
-      min-width: 58px;
-      padding-inline: 0.12rem 0.2rem;
+    /* ── days ───────────────────────────────────────────────────────────── */
+    .day-row {
+      display: grid; grid-template-columns: 50px 26px 26px minmax(0, 1fr) 62px; align-items: center; gap: 4px 8px;
+      padding: 10px 0; border-top: 2px dashed var(--rule);
     }
-    .gear-cell { white-space: nowrap; font-size: 0.72rem; }
-    .gear-cell img { height: 1em; vertical-align: middle; opacity: 0.85; margin-right: 0.05rem; }
+    .day-row:first-of-type { border-top: none; padding-top: 2px; }
+    .day-row .d { font-size: 22px; line-height: 1; }
+    .day-row .d small { display: block; font: 800 10px Nunito, sans-serif; color: var(--muted); letter-spacing: 0; }
+    .day-row .lo { font-weight: 900; text-align: right; }
+    .day-row .hi { font-weight: 900; white-space: nowrap; }
+    .day-row .hi small { color: var(--muted); }
+    .track { height: 14px; border: 2.5px solid var(--ink); border-radius: 999px; background: var(--calm); position: relative; overflow: hidden; }
+    .track .fill {
+      position: absolute; top: 0; bottom: 0; border-radius: 999px;
+      background: linear-gradient(90deg, var(--calm) 0%, var(--cyan) 30%, var(--green) 50%, var(--orange) 70%, var(--red) 85%);
+      background-size: var(--bs) 100%; background-position: var(--bp) 0;
+    }
+    .track .gust { position: absolute; top: -3px; bottom: -3px; width: 3px; background: var(--ink); }
+    .day-gear { grid-column: 2 / -1; font-size: 13px; color: var(--muted); display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+    .day-gear .gchip { font-size: 12px; }
+    .on-badge { background: var(--pink); color: #fff; border: 2px solid var(--ink); border-radius: 6px; padding: 0 6px; font: 400 14px Bangers, sans-serif; letter-spacing: .05em; }
+
+    /* ── tiles ──────────────────────────────────────────────────────────── */
+    .tile { display: flex; flex-direction: column; }
+    .tile .val { font-size: 44px; line-height: 1; }
+    .tile .sub { color: var(--muted); font-size: 13px; margin-top: auto; padding-top: 8px; }
+    .tile.cyan { background: var(--cyan); color: var(--on-color); }
+    .tile.pink { background: var(--pink); color: #fff; }
+    .tile.cyan .sub { color: inherit; opacity: .75; }
+    .tile.pink .sub, .tile.pink .note { color: #fff; }
+    .compass { flex: 1; display: grid; place-items: center; }
+    .compass svg { width: 100%; max-width: 132px; }
+    .meter {
+      height: 16px; border: 2.5px solid var(--ink); border-radius: 999px; position: relative; margin: 12px 0 6px;
+      background: linear-gradient(90deg, var(--green), var(--yellow), var(--orange), var(--red));
+    }
+    .meter i { position: absolute; top: -7px; width: 8px; height: 26px; background: #fff; border: 2.5px solid var(--ink); border-radius: 4px; transform: translateX(-50%); }
+    .gear-line { display: flex; align-items: center; gap: 8px; font-size: 15px; margin: 2px 0; }
+    .gear-line .display { font-size: 36px; line-height: 1.05; white-space: nowrap; }
+    .gear-line img { height: 22px; width: auto; }
+    .toggle { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; user-select: none; }
+    .toggle input {
+      appearance: none; -webkit-appearance: none; width: 42px; height: 24px; border: 2.5px solid var(--ink);
+      border-radius: 999px; background: var(--calm); position: relative; cursor: pointer; margin: 0; flex-shrink: 0;
+    }
+    .toggle input::after {
+      content: ''; position: absolute; top: 1px; left: 1px; width: 16px; height: 16px; border-radius: 50%;
+      background: #fff; border: 2px solid var(--ink); transition: left .15s;
+    }
+    .toggle input:checked { background: var(--green); }
+    .toggle input:checked::after { left: 19px; }
+    .tile .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: auto; padding-top: 10px; }
+    .kv { font-size: 13px; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 0; border-top: 2px dashed var(--rule); }
+    .kv:first-child { border-top: none; }
+    .kv > span:last-child { color: var(--muted); text-align: right; display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+    .kv .bad { color: var(--red); font-weight: 900; }
+
+    footer { margin-top: 22px; font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; gap: 12px; }
+    footer nav { display: flex; gap: 10px; }
+
+    /* ── responsive ─────────────────────────────────────────────────────── */
+    @media (max-width: 420px) {
+      .brand h1 { font-size: 27px; }
+      .chip { padding: 5px 9px; min-height: 40px; }
+      .chip.icon { width: 40px; }
+      .now .big { font-size: 104px; }
+      .caption { font-size: 10px; }
+      .burst { width: 104px; height: 104px; font-size: 15px; right: -18px; top: -14px; }
+      .burst span { padding: 22px; }
+      .bubble { font-size: 16px; }
+      .tile .val { font-size: 38px; }
+      .gear-line .display { font-size: 30px; }
+    }
+    @media (min-width: 760px) {
+      .grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      .days { grid-column: span 2; }
+      .tile.data { grid-column: span 2; }
+    }
+    @media (min-width: 1100px) {
+      .grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+      .hero { grid-column: 1 / 5; grid-row: span 2; align-content: center; }
+      .now .big { font-size: 170px; }
+      .now-meta { font-size: 20px; }
+      .bubble { font-size: 19px; }
+      .days { grid-column: 1 / 5; grid-row: auto; }
+      .tile.data { grid-column: 5 / 7; }
+    }
   </style>
 </head>
 <body>
-  <div class="page-top">
-    <div class="page-top-brand">
-      <h1><img src="/logo.png" alt="KiteAgent Logo" title="KiteAgent">KiteAgent</h1>
-      <p class="subtitle">Windy Point, Lake Travis — Kite Forecast Alerts</p>
-    </div>
-    <div class="weight-row" id="weight-row" style="display:none">
-      <span>Rider:</span>
-      <span id="weight-label" style="cursor:pointer"></span>
-      <input id="weight-input" type="number" min="30" max="180" step="1" style="display:none" placeholder="kg">
-      <button class="weight-edit-btn" id="weight-edit" title="Edit weight">&#9998;</button>
-      <button class="weight-edit-btn" id="weight-clear" title="Reset weight to 80 kg" style="display:none">&times;</button>
-      <label class="foil-toggle" title="Foil board (reduces effective weight by 20 kg for kite sizing)">
-        <input type="checkbox" id="foil-toggle-input">
-        <span class="foil-switch"></span>
-        Foil
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="/"><img src="/logo.png" alt="" width="40" height="32"><h1 class="display">KiteAgent</h1></a>
+    <button class="chip" id="rider-chip" aria-haspopup="true" aria-expanded="false" title="Rider settings">🧍 <span id="rider-chip-label">80 kg</span></button>
+    <button class="chip icon" id="bell-chip" title="Push alerts">🔕</button>
+    <button class="chip icon" id="theme-chip" title="Toggle light/dark">🌙</button>
+
+    <div class="pop hidden" id="rider-pop" role="dialog" aria-label="Rider settings">
+      <span class="label">🧍 Rider</span>
+      <div class="field">
+        <input id="weight-input" type="number" min="30" max="180" step="1" inputmode="numeric" aria-label="Rider weight in kg">
+        <span>kg</span>
+        <button class="btn small" id="weight-save">Save</button>
+      </div>
+      <label class="toggle" title="Foil board (reduces effective weight by 20 kg for kite sizing)">
+        <input type="checkbox" class="foil-input"> Foil board
       </label>
+      <button class="link-btn" id="weight-reset" style="justify-self:start">Reset to 80 kg</button>
     </div>
-  </div>
+  </header>
 
-  <article id="push-alerts">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap">
-      <div>
-        <strong>Push Alerts</strong>
-        <p style="margin:0.15rem 0 0;color:var(--pico-muted-color);font-size:0.8rem">Get notified when the forecast is good for wind sports</p>
+  <main class="grid">
+    <section class="panel hero" id="hero" aria-live="polite">
+      <div class="caption">📍 Windy Point · Lake Travis</div>
+      <div class="now"><span class="big display">…</span></div>
+    </section>
+
+    <section class="panel strip">
+      <div class="panel-head">
+        <span class="label">⏱ Next 48 hours</span>
+        <button class="btn small plain hidden" id="pull-btn">Pull now</button>
       </div>
-      <div style="display:flex;gap:0.5rem;flex-shrink:0">
-        <button id="enable" class="contrast" style="white-space:nowrap;padding:0.45rem 1.1rem">Subscribe</button>
-        <button id="test-notif" class="outline" style="white-space:nowrap;padding:0.45rem 1.1rem;display:none">Test</button>
+      <div class="hours" id="hours"><span class="msg">Loading forecast…</span></div>
+      <div class="legend">
+        <span><i class="w0"></i>&lt;12 kts</span>
+        <span><i class="w1"></i>12–18</span>
+        <span><i class="w2"></i>18–25</span>
+        <span><i class="w3"></i>25–30</span>
+        <span><i class="w4"></i>30+</span>
       </div>
-    </div>
-    <p id="status" style="margin:0.4rem 0 0;font-size:0.8rem"></p>
-  </article>
+    </section>
 
-  <article>
-    <header>
-      48-Hour Forecast
-      <button id="pull-btn" class="outline" style="float:right;padding:0.2rem 0.7rem;font-size:0.75rem;margin:0;display:none">Pull now</button>
-    </header>
-    <div id="forecast-info"><span aria-busy="true">Loading…</span></div>
-  </article>
+    <section class="panel days"><span class="label">📅 Outlook</span><div id="days"></div></section>
 
-  <article>
-    <header>Service Status</header>
-    <div id="update-info"><span aria-busy="true">Loading…</span></div>
-  </article>
+    <section class="panel tile" id="t-wind"><span class="label">🧭 Wind now</span><div class="body"></div></section>
+    <section class="panel tile" id="t-gust"><span class="label">💥 Gustiness</span><div class="body"></div></section>
+    <section class="panel tile cyan" id="t-gear">
+      <span class="label">🪁 Your gear</span>
+      <div class="body"></div>
+      <div class="actions" style="align-items:center;justify-content:space-between">
+        <label class="toggle" title="Foil board (reduces effective weight by 20 kg for kite sizing)"><input type="checkbox" class="foil-input"> Foil</label>
+        <button class="link-btn" id="gear-weight" style="color:inherit">80 kg ✎</button>
+      </div>
+    </section>
+    <section class="panel tile pink" id="t-alerts">
+      <span class="label">🔔 Alerts</span>
+      <div id="push-alerts">
+        <div>Get pinged when the wind is on.</div>
+        <div class="actions"><button class="btn" id="enable">Subscribe!</button></div>
+      </div>
+      <div id="subscribed-actions" class="hidden">
+        <div>You're in! 🎉 We'll ping you when it's rideable.</div>
+        <div class="actions">
+          <button class="btn small" id="subscribed-test">Test</button>
+          <button class="btn small plain" id="subscribed-unsubscribe">Unsubscribe</button>
+        </div>
+      </div>
+      <p class="note" id="status"></p>
+    </section>
+    <section class="panel tile data"><span class="label">📡 Service status</span><div id="update-info"><span class="msg">Loading…</span></div></section>
+  </main>
 
-  <div id="subscribed-actions" style="display:none;margin-top:1rem;padding-top:0.75rem;border-top:1px solid var(--pico-muted-border-color);gap:0.5rem;justify-content:center;flex-wrap:wrap;align-items:center">
-    <button id="subscribed-test" class="outline" style="font-size:0.8rem">Test notification</button>
-    <button id="subscribed-unsubscribe" class="secondary outline" style="font-size:0.8rem">Unsubscribe</button>
-  </div>
+  <footer>
+    <span>KiteAgent 1.0.1 · Windy Point, Lake Travis</span>
+    <nav><a href="/status">/status</a><a href="/doc">/doc</a></nav>
+  </footer>
+</div>
 
-  <div class="version-row">
-    <small class="version">KiteAgent 1.0.1 · Windy Point, Lake Travis</small>
-    <div class="version-row-links">
-      <a class="doc-link" href="/status">/status</a>
-      <a class="doc-link" href="/doc">/doc</a>
-    </div>
-  </div>
+<script>
+  const VAPID_PUBLIC_KEY = '__VAPID_PUBLIC_KEY__';
+  const LIVE_ENABLED = __LIVE_ENABLED__;
+  const IS_ADMIN = __IS_ADMIN__;
 
-  <script>
-    const VAPID_PUBLIC_KEY = '__VAPID_PUBLIC_KEY__';
-    const LIVE_ENABLED = __LIVE_ENABLED__;
-    const IS_ADMIN = __IS_ADMIN__;
+  /** Spot timezone (matches agent / Open-Meteo request). HRRR JSON uses UTC wall times without a Z suffix. */
+  const SPOT_TZ = 'America/Chicago';
+  const TRACK_MAX_KN = 40;
 
-    // ── Rider weight (localStorage, default 80 kg) ───────────────────────────
+  const $ = (id) => document.getElementById(id);
+  const state = { forecast: null, live: null, status: null, forecastError: null };
 
-    const DEFAULT_RIDER_WEIGHT_KG = '80';
-    let kitegear = null;
-    let riderWeight = localStorage.getItem('rider_weight_kg');
-    if (riderWeight === null || riderWeight === '') {
-      riderWeight = DEFAULT_RIDER_WEIGHT_KG;
+  // ── theme ────────────────────────────────────────────────────────────────
+
+  const darkQuery = matchMedia('(prefers-color-scheme: dark)');
+  function isDark() {
+    const t = document.documentElement.dataset.theme;
+    return t ? t === 'dark' : darkQuery.matches;
+  }
+  function syncThemeUi() {
+    $('theme-chip').textContent = isDark() ? '☀️' : '🌙';
+    $('theme-color').content = isDark() ? '#1c1933' : '#fff4d6';
+  }
+  $('theme-chip').addEventListener('click', () => {
+    const next = isDark() ? 'light' : 'dark';
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem('theme', next); } catch {}
+    syncThemeUi();
+  });
+  darkQuery.addEventListener('change', syncThemeUi);
+  syncThemeUi();
+
+  // ── Rider weight + foil (localStorage, default 80 kg) ────────────────────
+
+  const DEFAULT_RIDER_WEIGHT_KG = '80';
+  let kitegear = null;
+  let riderWeight = localStorage.getItem('rider_weight_kg');
+  if (riderWeight === null || riderWeight === '') {
+    riderWeight = DEFAULT_RIDER_WEIGHT_KG;
+    localStorage.setItem('rider_weight_kg', riderWeight);
+  }
+  let foilEnabled = localStorage.getItem('foil_enabled') === 'true';
+
+  const riderPop = $('rider-pop');
+  const weightInput = $('weight-input');
+  const foilInputs = document.querySelectorAll('.foil-input');
+
+  function syncRiderUi() {
+    const label = `${riderWeight} kg${foilEnabled ? ' · foil' : ''}`;
+    $('rider-chip-label').textContent = label;
+    $('gear-weight').textContent = `${riderWeight} kg ✎`;
+    $('weight-reset').classList.toggle('hidden', riderWeight === DEFAULT_RIDER_WEIGHT_KG);
+    foilInputs.forEach((i) => { i.checked = foilEnabled; });
+  }
+
+  function openRiderPop() {
+    weightInput.value = riderWeight;
+    riderPop.classList.remove('hidden');
+    $('rider-chip').setAttribute('aria-expanded', 'true');
+    weightInput.focus();
+    weightInput.select();
+  }
+  function closeRiderPop() {
+    riderPop.classList.add('hidden');
+    $('rider-chip').setAttribute('aria-expanded', 'false');
+  }
+
+  function commitWeight(val) {
+    const n = parseInt(val, 10);
+    if (n >= 30 && n <= 180) {
+      riderWeight = String(n);
       localStorage.setItem('rider_weight_kg', riderWeight);
-    }
-
-    const weightRow = document.getElementById('weight-row');
-    const weightLabel = document.getElementById('weight-label');
-    const weightInput = document.getElementById('weight-input');
-    const weightEditBtn = document.getElementById('weight-edit');
-    const weightClearBtn = document.getElementById('weight-clear');
-    const foilToggle = document.getElementById('foil-toggle-input');
-
-    let foilEnabled = localStorage.getItem('foil_enabled') === 'true';
-    foilToggle.checked = foilEnabled;
-    foilToggle.addEventListener('change', () => {
-      foilEnabled = foilToggle.checked;
-      localStorage.setItem('foil_enabled', String(foilEnabled));
-      loadKitegearAndRefresh();
-    });
-
-    function showWeightDisplay() {
-      if (riderWeight) {
-        weightLabel.textContent = riderWeight + ' kg';
-        weightLabel.style.display = '';
-        weightInput.style.display = 'none';
-        weightEditBtn.textContent = '\u270E';
-        weightClearBtn.style.display = riderWeight !== DEFAULT_RIDER_WEIGHT_KG ? '' : 'none';
-      } else {
-        weightLabel.style.display = 'none';
-        weightInput.style.display = '';
-        weightInput.value = '';
-        weightInput.focus();
-        weightEditBtn.textContent = '\u270E';
-        weightClearBtn.style.display = 'none';
-      }
-      weightRow.style.display = 'flex';
-    }
-
-    function commitWeight(val) {
-      const n = parseInt(val, 10);
-      if (n >= 30 && n <= 180) {
-        riderWeight = String(n);
-        localStorage.setItem('rider_weight_kg', riderWeight);
-        showWeightDisplay();
-        loadKitegearAndRefresh();
-      } else if (!val || val === '') {
-        clearWeight();
-      }
-    }
-
-    function clearWeight() {
-      riderWeight = DEFAULT_RIDER_WEIGHT_KG;
-      localStorage.setItem('rider_weight_kg', riderWeight);
-      showWeightDisplay();
-      loadKitegearAndRefresh();
-    }
-
-    weightEditBtn.addEventListener('click', () => {
-      if (weightInput.style.display === 'none') {
-        weightLabel.style.display = 'none';
-        weightInput.style.display = '';
-        weightInput.value = riderWeight || '';
-        weightClearBtn.style.display = (riderWeight && riderWeight !== DEFAULT_RIDER_WEIGHT_KG) ? '' : 'none';
-        weightInput.focus();
-      } else {
-        commitWeight(weightInput.value);
-      }
-    });
-
-    weightClearBtn.addEventListener('click', clearWeight);
-
-    weightInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') commitWeight(weightInput.value);
-    });
-    weightInput.addEventListener('blur', () => {
-      if (weightInput.value) commitWeight(weightInput.value);
-      else if (riderWeight) showWeightDisplay();
-    });
-
-    weightLabel.addEventListener('click', () => {
-      weightLabel.style.display = 'none';
-      weightInput.style.display = '';
-      weightInput.value = riderWeight || '';
-      weightInput.focus();
-    });
-
-    async function loadKitegearAndRefresh() {
-      if (!riderWeight) return;
-      if (!kitegear) {
-        try {
-          const mod = await import('/kite-gear.js');
-          await mod.default({ module_or_path: '/kite-gear.wasm' });
-          kitegear = mod;
-        } catch (e) {
-          console.warn('kitegear WASM not available:', e);
-          return;
-        }
-      }
-      loadForecast();
-    }
-
-    showWeightDisplay();
-    loadKitegearAndRefresh();
-
-    function gearCell(windKn) {
-      if (!kitegear || !riderWeight) return '<td></td>';
-      const w = parseFloat(riderWeight);
-      const kite = kitegear.kite_size(windKn, w, foilEnabled);
-      const wing = kitegear.wing_size(windKn, w);
-      const parts = [];
-      if (kite > 0) {
-        parts.push(`<img src="/kite-icon.png" alt="Kite" width="16" height="16" decoding="async"> ${kite}`);
-      }
-      if (wing > 0) {
-        parts.push(`<img src="/wing-icon.svg" alt="Wing" width="16" height="16" decoding="async"> ${wing}`);
-      }
-      return `<td class="gear-cell">${parts.join(' ')}</td>`;
-    }
-
-    async function urlBase64ToUint8Array(base64String) {
-      const padding = '='.repeat((4 - base64String.length % 4) % 4);
-      const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-      const rawData = window.atob(base64);
-      const outputArray = new Uint8Array(rawData.length);
-      for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
-      return outputArray;
-    }
-
-    const btn = document.getElementById('enable');
-    const testBtn = document.getElementById('test-notif');
-    const statusEl = document.getElementById('status');
-
-    function pushUnsupportedReason() {
-      if (location.protocol !== 'https:' && location.hostname !== 'localhost')
-        return 'Push notifications require HTTPS. Open this page over a secure connection.';
-      if (!('serviceWorker' in navigator))
-        return 'Your browser does not support service workers.';
-      if (!('PushManager' in window)) {
-        const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-        if (isIOS) return 'iOS requires this site to be installed as an app first — tap the Share icon, then "Add to Home Screen", then open KiteAgent from your home screen.';
-        return 'Your browser does not support Web Push notifications. Try Chrome or Firefox.';
-      }
-      return null;
-    }
-
-    const subscribedActions = document.getElementById('subscribed-actions');
-    const subscribedTestBtn = document.getElementById('subscribed-test');
-    const subscribedUnsubBtn = document.getElementById('subscribed-unsubscribe');
-
-    function markSubscribed() {
-      document.getElementById('push-alerts').style.display = 'none';
-      subscribedActions.style.display = 'flex';
-    }
-
-    function markUnsubscribed() {
-      document.getElementById('push-alerts').style.display = '';
-      subscribedActions.style.display = 'none';
-      btn.textContent = 'Subscribe';
-      btn.disabled = false;
-      testBtn.style.display = 'none';
-      statusEl.innerHTML = '';
-    }
-
-    // Show a hint immediately if push won't work in this context.
-    const unsupported = pushUnsupportedReason();
-    if (unsupported) {
-      btn.disabled = true;
-      statusEl.innerHTML = `<small style="color:var(--pico-muted-color)">${unsupported}</small>`;
+      syncRiderUi();
+      closeRiderPop();
+      render();
+    } else if (!val) {
+      clearWeight();
     } else {
-      // On iOS, show a proactive install hint even before the user taps.
-      const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-      const isStandalone = window.navigator.standalone === true;
-      if (isIOS && !isStandalone) {
-        statusEl.innerHTML = `<small style="color:var(--pico-muted-color)">📲 On iPhone: tap the Share icon → <strong>Add to Home Screen</strong>, then open KiteAgent from your home screen to enable notifications.</small>`;
-        btn.disabled = true;
-      }
+      weightInput.setCustomValidity('30–180 kg');
+      weightInput.reportValidity();
+      weightInput.setCustomValidity('');
+    }
+  }
 
-      // Restore subscribed state if already subscribed.
-      navigator.serviceWorker.register('/sw.js').then(async reg => {
-        await navigator.serviceWorker.ready;
-        const existing = await reg.pushManager.getSubscription();
-        if (existing) markSubscribed();
-      }).catch(() => {});
+  function clearWeight() {
+    riderWeight = DEFAULT_RIDER_WEIGHT_KG;
+    localStorage.setItem('rider_weight_kg', riderWeight);
+    weightInput.value = riderWeight;
+    syncRiderUi();
+    render();
+  }
+
+  $('rider-chip').addEventListener('click', (e) => {
+    e.stopPropagation();
+    riderPop.classList.contains('hidden') ? openRiderPop() : closeRiderPop();
+  });
+  $('gear-weight').addEventListener('click', (e) => { e.stopPropagation(); openRiderPop(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+  $('weight-save').addEventListener('click', () => commitWeight(weightInput.value));
+  $('weight-reset').addEventListener('click', clearWeight);
+  weightInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') commitWeight(weightInput.value);
+    if (e.key === 'Escape') closeRiderPop();
+  });
+  riderPop.addEventListener('click', (e) => e.stopPropagation());
+  document.addEventListener('click', closeRiderPop);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeRiderPop(); });
+
+  foilInputs.forEach((input) => input.addEventListener('change', () => {
+    foilEnabled = input.checked;
+    localStorage.setItem('foil_enabled', String(foilEnabled));
+    syncRiderUi();
+    render();
+  }));
+  syncRiderUi();
+
+  async function loadKitegear() {
+    try {
+      const mod = await import('/kite-gear.js');
+      await mod.default({ module_or_path: '/kite-gear.wasm' });
+      kitegear = mod;
+      render();
+    } catch (e) {
+      console.warn('kitegear WASM not available:', e);
+    }
+  }
+
+  /** { kite, wing } sizes in m² for this wind (0 = none), or null when gear sizing is unavailable. */
+  function gearFor(windKn) {
+    if (!kitegear || !riderWeight) return null;
+    const w = parseFloat(riderWeight);
+    return { kite: kitegear.kite_size(windKn, w, foilEnabled), wing: kitegear.wing_size(windKn, w) };
+  }
+
+  function gearChips(windKn) {
+    const g = gearFor(windKn);
+    if (!g) return '';
+    let html = '';
+    if (g.kite > 0) html += `<span class="gchip" title="Kite ${g.kite} m"><img src="/kite-icon.png" alt="Kite" decoding="async">${g.kite}</span>`;
+    if (g.wing > 0) html += `<span class="gchip" title="Wing ${g.wing} m"><img src="/wing-icon.svg" alt="Wing" decoding="async">${g.wing}</span>`;
+    return html;
+  }
+
+  // ── Push alerts ──────────────────────────────────────────────────────────
+
+  async function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+    return outputArray;
+  }
+
+  const btn = $('enable');
+  const statusEl = $('status');
+  const bell = $('bell-chip');
+
+  function setStatus(text, isError = false) {
+    statusEl.textContent = '';
+    statusEl.className = 'note' + (isError ? ' err' : '');
+    if (text) statusEl.innerHTML = text;
+  }
+
+  function pushUnsupportedReason() {
+    if (location.protocol !== 'https:' && location.hostname !== 'localhost')
+      return 'Push notifications require HTTPS. Open this page over a secure connection.';
+    if (!('serviceWorker' in navigator))
+      return 'Your browser does not support service workers.';
+    if (!('PushManager' in window)) {
+      const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+      if (isIOS) return 'iOS requires this site to be installed as an app first — tap the Share icon, then "Add to Home Screen", then open KiteAgent from your home screen.';
+      return 'Your browser does not support Web Push notifications. Try Chrome or Firefox.';
+    }
+    return null;
+  }
+
+  const subscribedActions = $('subscribed-actions');
+  const subscribedTestBtn = $('subscribed-test');
+  const subscribedUnsubBtn = $('subscribed-unsubscribe');
+
+  function markSubscribed() {
+    $('push-alerts').classList.add('hidden');
+    subscribedActions.classList.remove('hidden');
+    bell.textContent = '🔔';
+    bell.classList.add('on');
+    bell.title = 'Push alerts on';
+    setStatus('');
+  }
+
+  function markUnsubscribed() {
+    $('push-alerts').classList.remove('hidden');
+    subscribedActions.classList.add('hidden');
+    bell.textContent = '🔕';
+    bell.classList.remove('on');
+    bell.title = 'Push alerts off';
+    btn.textContent = 'Subscribe!';
+    btn.disabled = false;
+    setStatus('');
+  }
+
+  bell.addEventListener('click', () => {
+    const tile = $('t-alerts');
+    tile.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    tile.animate([{ transform: 'rotate(0)' }, { transform: 'rotate(-2deg)' }, { transform: 'rotate(2deg)' }, { transform: 'rotate(0)' }], { duration: 400, delay: 300 });
+  });
+
+  // Show a hint immediately if push won't work in this context.
+  const unsupported = pushUnsupportedReason();
+  if (unsupported) {
+    btn.disabled = true;
+    setStatus(unsupported);
+  } else {
+    // On iOS, show a proactive install hint even before the user taps.
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const isStandalone = window.navigator.standalone === true;
+    if (isIOS && !isStandalone) {
+      setStatus('📲 On iPhone: tap Share → <strong>Add to Home Screen</strong>, then open KiteAgent from your home screen to enable alerts.');
+      btn.disabled = true;
     }
 
-    btn.addEventListener('click', async () => {
-      const reason = pushUnsupportedReason();
-      if (reason) { statusEl.innerHTML = `<mark>${reason}</mark>`; return; }
-      btn.setAttribute('aria-busy', 'true');
-      btn.disabled = true;
-      try {
-        const reg = await navigator.serviceWorker.register('/sw.js');
-        await navigator.serviceWorker.ready;
-        const permission = await Notification.requestPermission();
-        if (permission !== 'granted') {
-          statusEl.innerHTML = '<mark>Notification permission denied. Enable it in your browser settings.</mark>';
-          btn.disabled = false;
-          return;
-        }
-        const sub = await reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: await urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-        });
-        const res = await fetch('/subscribe', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(sub.toJSON())
-        });
-        if (!res.ok) throw new Error(`Server error ${res.status}`);
-        markSubscribed();
-        loadStatus();
-      } catch (e) {
-        statusEl.innerHTML = `<mark>${e.message}</mark>`;
-        console.error(e);
-        btn.disabled = false;
-      } finally {
-        btn.removeAttribute('aria-busy');
-      }
-    });
+    // Restore subscribed state if already subscribed.
+    navigator.serviceWorker.register('/sw.js').then(async reg => {
+      await navigator.serviceWorker.ready;
+      const existing = await reg.pushManager.getSubscription();
+      if (existing) markSubscribed();
+    }).catch(() => {});
+  }
 
-    async function sendTestNotification() {
-      const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.getSubscription();
-      if (!sub) return false;
-      const res = await fetch('/test-push', {
+  btn.addEventListener('click', async () => {
+    const reason = pushUnsupportedReason();
+    if (reason) { setStatus(reason, true); return; }
+    btn.setAttribute('aria-busy', 'true');
+    btn.disabled = true;
+    try {
+      const reg = await navigator.serviceWorker.register('/sw.js');
+      await navigator.serviceWorker.ready;
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        setStatus('Notification permission denied. Enable it in your browser settings.', true);
+        btn.disabled = false;
+        return;
+      }
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: await urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+      });
+      const res = await fetch('/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(sub.toJSON())
       });
-      return res.ok;
+      if (!res.ok) throw new Error(`Server error ${res.status}`);
+      markSubscribed();
+      refresh();
+    } catch (e) {
+      setStatus(e.message, true);
+      console.error(e);
+      btn.disabled = false;
+    } finally {
+      btn.removeAttribute('aria-busy');
     }
+  });
 
-    testBtn.addEventListener('click', async () => {
-      testBtn.setAttribute('aria-busy', 'true');
-      testBtn.disabled = true;
-      try {
-        const ok = await sendTestNotification();
-        statusEl.innerHTML = ok ? '<small style="color:var(--pico-muted-color)">Test notification sent!</small>' : '<mark>No active subscription found. Try subscribing again.</mark>';
-      } catch (e) {
-        statusEl.innerHTML = `<mark>${e.message}</mark>`;
-        console.error(e);
-      } finally {
-        testBtn.removeAttribute('aria-busy');
-        testBtn.disabled = false;
-      }
+  async function sendTestNotification() {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (!sub) return false;
+    const res = await fetch('/test-push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(sub.toJSON())
     });
+    return res.ok;
+  }
 
-    subscribedTestBtn.addEventListener('click', async () => {
-      subscribedTestBtn.setAttribute('aria-busy', 'true');
-      subscribedTestBtn.disabled = true;
-      try {
-        const ok = await sendTestNotification();
-        if (ok) subscribedTestBtn.textContent = 'Sent!';
-        setTimeout(() => { subscribedTestBtn.textContent = 'Test notification'; }, 2000);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        subscribedTestBtn.removeAttribute('aria-busy');
-        subscribedTestBtn.disabled = false;
+  subscribedTestBtn.addEventListener('click', async () => {
+    subscribedTestBtn.setAttribute('aria-busy', 'true');
+    subscribedTestBtn.disabled = true;
+    try {
+      const ok = await sendTestNotification();
+      if (ok) subscribedTestBtn.textContent = 'Sent!';
+      else setStatus('No active subscription found. Try subscribing again.', true);
+      setTimeout(() => { subscribedTestBtn.textContent = 'Test'; }, 2000);
+    } catch (e) {
+      setStatus(e.message, true);
+      console.error(e);
+    } finally {
+      subscribedTestBtn.removeAttribute('aria-busy');
+      subscribedTestBtn.disabled = false;
+    }
+  });
+
+  subscribedUnsubBtn.addEventListener('click', async () => {
+    subscribedUnsubBtn.setAttribute('aria-busy', 'true');
+    subscribedUnsubBtn.disabled = true;
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        await fetch('/unsubscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(sub.toJSON())
+        });
+        await sub.unsubscribe();
       }
-    });
-
-    subscribedUnsubBtn.addEventListener('click', async () => {
-      subscribedUnsubBtn.setAttribute('aria-busy', 'true');
-      subscribedUnsubBtn.disabled = true;
-      try {
-        const reg = await navigator.serviceWorker.ready;
-        const sub = await reg.pushManager.getSubscription();
-        if (sub) {
-          await fetch('/unsubscribe', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(sub.toJSON())
-          });
-          await sub.unsubscribe();
-        }
-        markUnsubscribed();
-        loadStatus();
-      } catch (e) {
-        console.error(e);
-      } finally {
-        subscribedUnsubBtn.removeAttribute('aria-busy');
-        subscribedUnsubBtn.disabled = false;
-      }
-    });
-
-    // ── helpers ──────────────────────────────────────────────────────────────
-
-    function reltime(iso) {
-      const diff = Date.now() - new Date(iso).getTime();
-      const mins = Math.round(diff / 60000);
-      if (mins < 2) return 'just now';
-      if (mins < 60) return `${mins}m ago`;
-      const hrs = Math.round(mins / 60);
-      if (hrs < 24) return `${hrs}h ago`;
-      return `${Math.round(hrs / 24)}d ago`;
+      markUnsubscribed();
+      refresh();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      subscribedUnsubBtn.removeAttribute('aria-busy');
+      subscribedUnsubBtn.disabled = false;
     }
+  });
 
-    function bearing(deg) {
-      const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
-      return dirs[Math.round(deg / 22.5) % 16];
+  // ── helpers ──────────────────────────────────────────────────────────────
+
+  function reltime(iso) {
+    const diff = Date.now() - new Date(iso).getTime();
+    const mins = Math.round(diff / 60000);
+    if (mins < 2) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.round(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    return `${Math.round(hrs / 24)}d ago`;
+  }
+
+  function bearing(deg) {
+    const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+    return dirs[Math.round(deg / 22.5) % 16];
+  }
+
+  function wmoIcon(code) {
+    const c = Number(code);
+    if (!Number.isFinite(c)) return '—';
+    if (c === 0) return '☀️';
+    if (c === 1) return '🌤️';
+    if (c === 2) return '⛅';
+    if (c === 3) return '☁️';
+    if (c === 45 || c === 48) return '🌫️';
+    if (c >= 51 && c <= 55) return '🌦️';
+    if (c >= 56 && c <= 57) return '🌧️';
+    if (c >= 61 && c <= 67) return '🌧️';
+    if (c >= 71 && c <= 77) return '❄️';
+    if (c >= 80 && c <= 82) return '🌦️';
+    if (c >= 85 && c <= 86) return '🌨️';
+    if (c >= 95 && c <= 99) return '⛈️';
+    return '—';
+  }
+
+  function parseForecastInstant(iso) {
+    if (!iso) return new Date(NaN);
+    const s = String(iso).trim();
+    if (/[zZ]$/.test(s) || /[+-]\d{2}:?\d{2}$/.test(s)) return new Date(s);
+    return new Date(s + 'Z');
+  }
+
+  function hourInSpot(iso) {
+    const d = parseForecastInstant(iso);
+    const parts = new Intl.DateTimeFormat('en-US', { timeZone: SPOT_TZ, hour: 'numeric', hour12: false }).formatToParts(d);
+    const h = parts.find((p) => p.type === 'hour');
+    return h ? parseInt(h.value, 10) % 24 : NaN;
+  }
+
+  /** "10a", "12p" in spot time. */
+  function shortHour(iso) {
+    const parts = new Intl.DateTimeFormat('en-US', { timeZone: SPOT_TZ, hour: 'numeric', hour12: true }).formatToParts(parseForecastInstant(iso));
+    const h = parts.find((p) => p.type === 'hour')?.value ?? '';
+    const p = parts.find((p) => p.type === 'dayPeriod')?.value ?? '';
+    return h + p.charAt(0).toLowerCase();
+  }
+
+  function weekdaySpot(iso) {
+    return parseForecastInstant(iso).toLocaleDateString('en-US', { timeZone: SPOT_TZ, weekday: 'short' });
+  }
+
+  function dateSpot(iso) {
+    return parseForecastInstant(iso).toLocaleDateString('en-US', { timeZone: SPOT_TZ, month: 'short', day: 'numeric' });
+  }
+
+  function fmtDay(iso) {
+    return parseForecastInstant(iso).toLocaleDateString([], { timeZone: SPOT_TZ, weekday: 'short', month: 'short', day: 'numeric' });
+  }
+
+  /** Live station reports °F; forecast uses °C (HRRR). */
+  function celsiusFromFahrenheit(f) {
+    return (f - 32) * (5 / 9);
+  }
+
+  /** Wind-speed color bucket shared by hour cards and the legend. */
+  function windClass(kn) {
+    return kn < 12 ? 'w0' : kn < 18 ? 'w1' : kn < 25 ? 'w2' : kn < 30 ? 'w3' : 'w4';
+  }
+
+  /** Gust ÷ wind, or null when wind is too light for the ratio to mean anything. */
+  function gustRatio(gustKn, windKn) {
+    if (!(windKn >= 0.75)) return null;
+    const r = gustKn / windKn;
+    return Number.isFinite(r) && r <= 8 ? r : null;
+  }
+
+  function gustWord(r) {
+    if (r == null) return '—';
+    return r > 1.8 ? 'Very gusty' : r > 1.4 ? 'Gusty' : 'Smooth';
+  }
+
+  /** Arrow pointing downwind (where the wind blows to). */
+  function arrow(fromDeg, size = 18) {
+    return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" style="transform:rotate(${(fromDeg ?? 0) + 180}deg)" aria-hidden="true"><path d="M12 2 L19 20 L12 15 L5 20 Z" fill="currentColor" stroke="var(--ink)" stroke-width="1.5" stroke-linejoin="round"/></svg>`;
+  }
+
+  // ── data ─────────────────────────────────────────────────────────────────
+
+  /** Daylight (8am–8pm spot time) hours from an hour ago onward. */
+  function forecastHours() {
+    const all = state.forecast?.hours || [];
+    const cutoff = new Date(Date.now() - 3600_000);
+    const future = all.filter((h) => parseForecastInstant(h.time) >= cutoff);
+    const hours = future
+      .filter((h) => { const hc = hourInSpot(h.time); return hc >= 8 && hc <= 20; })
+      .slice(0, 48);
+    let emptyMsg = null;
+    if (!hours.length) {
+      emptyMsg = 'No forecast hours available';
+      if (!all.length) emptyMsg = 'No forecast hours in response';
+      else if (!future.length) emptyMsg = 'Forecast is stale (all hours are in the past). Use Pull now (with ?user=…) or wait for the agent to fetch.';
+      else emptyMsg = 'No 8am–8pm Central slots in the next window (try again later or use Pull now).';
     }
+    return { hours, emptyMsg };
+  }
 
-    function wmoIcon(code) {
-      const c = Number(code);
-      if (!Number.isFinite(c)) return '—';
-      if (c === 0) return '☀️';
-      if (c === 1) return '🌤️';
-      if (c === 2) return '⛅';
-      if (c === 3) return '☁️';
-      if (c === 45 || c === 48) return '🌫️';
-      if (c >= 51 && c <= 55) return '🌦️';
-      if (c >= 56 && c <= 57) return '🌧️';
-      if (c >= 61 && c <= 67) return '🌧️';
-      if (c >= 71 && c <= 77) return '❄️';
-      if (c >= 80 && c <= 82) return '🌦️';
-      if (c >= 85 && c <= 86) return '🌨️';
-      if (c >= 95 && c <= 99) return '⛈️';
-      return '—';
-    }
-
-    function fmtTime(iso) {
-      return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    }
-
-    function fmtDay(iso) {
-      return new Date(iso).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
-    }
-
-    /** Spot timezone (matches agent / Open-Meteo request). HRRR JSON uses UTC wall times without a Z suffix. */
-    const SPOT_TZ = 'America/Chicago';
-
-    function parseForecastInstant(iso) {
-      if (!iso) return new Date(NaN);
-      const s = String(iso).trim();
-      if (/[zZ]$/.test(s) || /[+-]\d{2}:?\d{2}$/.test(s)) return new Date(s);
-      return new Date(s + 'Z');
-    }
-
-    function hourInSpot(iso) {
-      const d = parseForecastInstant(iso);
-      const parts = new Intl.DateTimeFormat('en-US', {
-        timeZone: SPOT_TZ,
-        hour: 'numeric',
-        hour12: false,
-      }).formatToParts(d);
-      const h = parts.find((p) => p.type === 'hour');
-      return h ? parseInt(h.value, 10) : NaN;
-    }
-
-    function fmtTimeSpot(iso) {
-      return parseForecastInstant(iso).toLocaleTimeString([], {
-        timeZone: SPOT_TZ,
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-    }
-
-    function fmtDaySpot(iso) {
-      return parseForecastInstant(iso).toLocaleDateString([], {
-        timeZone: SPOT_TZ,
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric',
-      });
-    }
-
-    /**
-     * Wind/gust column: gust ÷ wind, one decimal (e.g. 1.5).
-     * --gust-bright whitens the left border more when gusts are punchy (scale up to 2.25:1).
-     */
-    function gustAccent(gustKn, windKn) {
-      const minWind = 0.75;
-      if (windKn < minWind) return { windGustRatioLabel: '—', bright: '0%' };
-      const ratio = gustKn / windKn;
-      if (!Number.isFinite(ratio) || ratio > 8) return { windGustRatioLabel: '—', bright: '0%' };
-      const windGustRatioLabel = `x${ratio.toFixed(1)}`;
-      const clamped = Math.min(2.25, Math.max(1, ratio));
-      const t = (clamped - 1) / 1.25;
-      return { windGustRatioLabel, bright: `${Math.round(t * 58)}%` };
-    }
-
-    function forecastRowAttrs(accentClass, gustKn, windKn) {
-      const { windGustRatioLabel, bright } = gustAccent(gustKn, windKn);
-      const bases = { calm: '#64748b', windy: '#2db8d4', rideable: '#0d7a94' };
-      const base = bases[accentClass] || bases.calm;
+  /** Current conditions: live station when available, otherwise the first forecast hour. */
+  function currentConditions(hours) {
+    const l = state.live;
+    if (l) {
       return {
-        windGustRatioLabel,
-        trStyle: `--row-accent-base:${base};--gust-bright:${bright};`,
+        live: true,
+        wind: l.wind_speed_kn ?? 0,
+        gust: l.wind_hi_kn ?? 0,
+        dir: l.wind_direction_deg ?? 0,
+        dirLabel: l.wind_direction || bearing(l.wind_direction_deg ?? 0),
+        avg: l.wind_avg_kn,
+        tempC: l.temperature_f != null ? celsiusFromFahrenheit(l.temperature_f) : null,
+        at: l.scraped_at,
       };
     }
+    const h = hours[0];
+    if (!h) return null;
+    return { live: false, wind: h.wind_kn, gust: h.gusts_kn, dir: h.dir_deg, dirLabel: bearing(h.dir_deg), tempC: h.temp_c, at: h.time };
+  }
 
-    /** Live station reports °F; forecast table uses °C (HRRR). */
-    function celsiusFromFahrenheit(f) {
-      return (f - 32) * (5 / 9);
+  // ── render ───────────────────────────────────────────────────────────────
+
+  function render() {
+    const { hours, emptyMsg } = forecastHours();
+    const now = currentConditions(hours);
+    const best = hours.length ? hours.reduce((a, b) => (b.wind_kn > a.wind_kn ? b : a)) : null;
+    renderHero(now, best, hours);
+    renderStrip(now, hours, emptyMsg);
+    renderDays(hours);
+    renderWindTile(now);
+    renderGustTile(best);
+    renderGearTile(best);
+  }
+
+  function renderHero(now, best, hours) {
+    const el = $('hero');
+    if (!now) {
+      el.innerHTML = `<div class="caption">📍 Windy Point · Lake Travis</div>
+        <div class="bubble">${state.forecastError ? 'Could not load the forecast.' : 'Loading the latest wind…'}</div>`;
+      return;
+    }
+    const source = now.live
+      ? `live · ${reltime(now.at)}`
+      : `forecast · ${shortHour(now.at)}`;
+
+    // Verdict: next rideable window from the agent, else the best hour in the forecast.
+    const win = state.status?.last_analysis?.next_window;
+    const w = Math.round(now.wind);
+    let lead = '';
+    if (now.live) lead = w >= 15 ? `It's blowing <b>${w} kts</b> right now!` : w >= 10 ? `Light ${w} kts right now.` : 'Flat right now.';
+    let story = '';
+    let badges = '';
+    let burst = '';
+    if (win?.start) {
+      const kn = win.avg_kn ?? 0;
+      const g = gearFor(kn);
+      story = ` Rideable window <b>${weekdaySpot(win.start)} ${shortHour(win.start)}–${shortHour(win.end)}</b>, avg <b>${Math.round(kn)} kts</b> from the ${bearing(win.dir_deg ?? 0)}.`;
+      if (g?.kite > 0) story += ` Rig the <b>${g.kite} m</b> kite.`;
+      badges = (win.disciplines || []).map((d) => `<span class="badge">${d}</span>`).join('');
+      burst = `IT'S<br>ON!`;
+    } else if (best && best.wind_kn >= 12) {
+      const r = gustRatio(best.gusts_kn, best.wind_kn);
+      const g = gearFor(best.wind_kn);
+      story = ` No rideable window yet. Best shot: <b>${weekdaySpot(best.time)} ${shortHour(best.time)}</b> with <b>${Math.round(best.wind_kn)}↑${Math.round(best.gusts_kn)} kts</b> from the ${bearing(best.dir_deg)}`;
+      story += r > 1.8 ? ', but very gusty.' : '.';
+      if (g?.kite > 0) story += ` That's a <b>${g.kite} m</b> kite.`;
+      if (best.wind_kn >= 15) burst = `${weekdaySpot(best.time).toUpperCase()}<br>${Math.round(best.wind_kn)} KTS!`;
+    } else if (best) {
+      story = ` Light all the way to ${weekdaySpot(hours[hours.length - 1].time)}: max <b>${Math.round(best.wind_kn)} kts</b>. Rest day!`;
     }
 
-    function infoRow(label, value) {
-      return `<div class="info-row"><span>${label}</span><span>${value}</span></div>`;
+    el.innerHTML = `
+      <div class="caption">📍 Windy Point · ${source}</div>
+      <div class="now"><span class="big display">${w}</span><span class="unit display">kts</span></div>
+      <div class="now-meta">
+        <div class="row">💨 gusts <b>${Math.round(now.gust)}</b></div>
+        <div class="row"><span class="dir-badge">${arrow(now.dir)}</span> ${now.dirLabel}</div>
+        ${now.tempC != null ? `<div class="row">🌡 ${Math.round(now.tempC)}°C</div>` : ''}
+      </div>
+      <div class="bubble">${(lead + story).trim()}${badges ? `<div class="badges">${badges}</div>` : ''}</div>
+      ${burst ? `<div class="burst display"><span>${burst}</span></div>` : ''}`;
+  }
+
+  function renderStrip(now, hours, emptyMsg) {
+    const el = $('hours');
+    if (state.forecastError) { el.innerHTML = `<span class="msg">${state.forecastError}</span>`; return; }
+    if (!state.forecast) return;
+    if (emptyMsg) { el.innerHTML = `<span class="msg">${emptyMsg}</span>`; return; }
+    let html = '';
+    if (now?.live) {
+      html += `<div class="hour now-h" title="Live station">
+        <span class="t">NOW</span><span class="sky">◉</span>
+        <span class="w">${Math.round(now.wind)}</span><span class="g">↑${Math.round(now.gust)}</span>
+        ${arrow(now.dir)}<span class="gear">${gearChips(now.wind)}</span></div>`;
     }
-
-    // ── /status ───────────────────────────────────────────────────────────────
-
-    async function loadStatus() {
-      const el = document.getElementById('update-info');
-      try {
-        const [statusRes, forecastRes, liveRes] = await Promise.all([
-          fetch('/status', { cache: 'no-store' }).then(r => r.json()),
-          fetch('/forecast', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null),
-          LIVE_ENABLED ? fetch('/live', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null) : Promise.resolve(null),
-        ]);
-        const d = statusRes;
-        let html = '';
-        if (forecastRes && !forecastRes.error) {
-          html += infoRow('Weather forecast', `${reltime(forecastRes.fetched_at)} · ${forecastRes.source}`);
-          html += infoRow('Forecast range', `${fmtDay(forecastRes.valid_from)} – ${fmtDay(forecastRes.valid_to)}`);
-        } else if (d.last_forecast_fetch) {
-          const f = d.last_forecast_fetch;
-          html += infoRow('Forecast', `${reltime(f.at)} ${f.ok ? '✓' : '✗'}`);
-        }
-        const stationUrl = 'https://wwwext.arlut.utexas.edu/weather/lake/';
-        html += infoRow('Live', liveRes?.scraped_at ? `${reltime(liveRes.scraped_at)} - <a href="${stationUrl}" rel="noopener noreferrer" target="_blank" style="color:var(--pico-primary)">ARL:UT Lake Travis</a>` : '—');
-        if (d.last_analysis) {
-          const a = d.last_analysis;
-          const analyzeBtn = IS_ADMIN
-            ? '<button type="button" class="outline status-analyze-btn" title="Re-run rideable-window analysis on the latest forecast" style="font-size:0.65rem;padding:0.08rem 0.4rem;line-height:1.2;margin:0;flex-shrink:0">Run</button>'
-            : '';
-          html += infoRow('Last analysis', `${reltime(a.at)}${analyzeBtn}`);
-          html += infoRow('Rideable windows', String(a.windows_found));
-          if (a.next_window?.start) {
-            const w = a.next_window;
-            const disc = (w.disciplines || []).map(d => `<span class="badge">${d}</span>`).join('');
-            html += `<div class="next-window">
-              <strong>Next window</strong>
-              <div>${fmtTime(w.start)} – ${fmtTime(w.end)} · ${Math.round(w.avg_kn ?? 0)} kts · ${bearing(w.dir_deg ?? 0)}</div>
-              ${disc ? `<div class="badges">${disc}</div>` : ''}
-            </div>`;
-          }
-        }
-        if (d.last_notification_sent) {
-          html += infoRow('Last alert', reltime(d.last_notification_sent.at));
-        }
-        html += infoRow('Subscribers', String(d.subscribers ?? 0));
-        if (d.errors_last_24h > 0)
-          html += infoRow('Errors (24 h)', `<span style="color:var(--pico-del-color)">${d.errors_last_24h}</span>`);
-        el.innerHTML = html || '<span style="color:var(--pico-muted-color)">No data yet</span>';
-      } catch {
-        el.innerHTML = '<span style="color:var(--pico-muted-color)">Could not load status</span>';
-      }
+    let lastDay = '';
+    for (const h of hours) {
+      const day = weekdaySpot(h.time);
+      if (day !== lastDay) { html += `<div class="day-tag display">${day}</div>`; lastDay = day; }
+      const r = gustRatio(h.gusts_kn, h.wind_kn);
+      html += `<div class="hour ${windClass(h.wind_kn)}" title="${fmtDay(h.time)} ${shortHour(h.time)} · ${bearing(h.dir_deg)}${r ? ` · gust ×${r.toFixed(1)}` : ''}${h.temp_c != null ? ` · ${Math.round(h.temp_c)}°C` : ''}">
+        ${h.rideable ? '<span class="on">ON!</span>' : ''}
+        <span class="t">${shortHour(h.time)}</span><span class="sky">${wmoIcon(h.wmo)}</span>
+        <span class="w">${Math.round(h.wind_kn)}</span><span class="g">↑${Math.round(h.gusts_kn)}</span>
+        ${arrow(h.dir_deg)}<span class="gear">${gearChips(h.wind_kn)}</span></div>`;
     }
+    const scrollLeft = el.scrollLeft;
+    el.innerHTML = html;
+    el.scrollLeft = scrollLeft;
+  }
 
-    // ── /live (overlay) ───────────────────────────────────────────────────────
-
-    let liveData = null;
-
-    async function loadLive() {
-      if (!LIVE_ENABLED) return;
-      try {
-        const r = await fetch('/live', { cache: 'no-store' });
-        if (!r.ok) { liveData = null; return; }
-        liveData = await r.json();
-      } catch {
-        liveData = null;
-      }
+  function renderDays(hours) {
+    const el = $('days');
+    if (!hours.length) { el.innerHTML = `<span class="msg">${state.forecastError || (state.forecast ? 'No forecast hours.' : 'Loading…')}</span>`; return; }
+    const byDay = new Map();
+    for (const h of hours) {
+      const key = fmtDay(h.time);
+      if (!byDay.has(key)) byDay.set(key, []);
+      byDay.get(key).push(h);
     }
-
-    // ── /forecast ─────────────────────────────────────────────────────────────
-
-    async function loadForecast() {
-      const el = document.getElementById('forecast-info');
-      try {
-        const d = await fetch('/forecast', { cache: 'no-store' }).then(r => r.json());
-        if (d.error) {
-          el.innerHTML = `<span style="color:var(--pico-muted-color)">${d.error}</span>`;
-          return;
-        }
-
-        const now = new Date();
-        const cutoff = new Date(now.getTime() - 3600_000);
-        const all = d.hours || [];
-        const future = all.filter((h) => parseForecastInstant(h.time) >= cutoff);
-        // Daylight at the spot (not browser local): HRRR times are UTC; filter uses America/Chicago.
-        const hours = future
-          .filter((h) => {
-            const hc = hourInSpot(h.time);
-            return hc >= 8 && hc <= 20;
-          })
-          .slice(0, 48);
-
-        if (!hours.length) {
-          let msg = 'No forecast hours available';
-          if (!all.length) msg = 'No forecast hours in response';
-          else if (!future.length)
-            msg =
-              'Forecast is stale (all hours are in the past). Use Pull now (with ?user=…) or wait for the agent to fetch.';
-          else
-            msg =
-              'No 8am–8pm Central slots in the next window (try again later or use Pull now).';
-          el.innerHTML = `<span style="color:var(--pico-muted-color)">${msg}</span>`;
-          return;
-        }
-
-        let rows = '';
-        if (liveData) {
-          const windKn = liveData.wind_speed_kn ?? 0;
-          const gustKn = liveData.wind_hi_kn ?? 0;
-          const dir = liveData.wind_direction_deg ?? 0;
-          const liveStripe = forecastRowAttrs('rideable', gustKn, windKn);
-          rows += `<tr class="forecast-row rideable forecast-live-row" style="background:color-mix(in srgb, var(--pico-primary) 18%, transparent);${liveStripe.trStyle}">
-            <td><strong>Now</strong><br><span style="font-size:0.7rem;color:var(--pico-muted-color)">live</span></td>
-            <td><span class="wind-val">${Math.round(windKn)}</span> <span class="gust-val">↑${Math.round(gustKn)}</span> kts</td>
-            <td class="forecast-ratio-cell"><span class="gust-val">${liveStripe.windGustRatioLabel}</span></td>
-            <td>${bearing(dir)}</td>
-            <td>${liveData.temperature_f != null ? Math.round(celsiusFromFahrenheit(liveData.temperature_f)) + '°C' : '—'}</td>
-            <td>◉</td>
-            ${gearCell(windKn)}
-          </tr>`;
-        }
-        let lastDay = '';
-        for (const h of hours) {
-          const day = fmtDaySpot(h.time);
-          const isSep = day !== lastDay;
-          lastDay = day;
-
-          const rideClass = h.rideable ? 'rideable' : (h.wind_kn >= 8 ? 'windy' : 'calm');
-          const stripe = forecastRowAttrs(rideClass, h.gusts_kn, h.wind_kn);
-          if (isSep) {
-            rows += `<tr class="forecast-day-row"><td colspan="7"><strong>${day}</strong></td></tr>`;
-          }
-          rows += `<tr class="forecast-row ${rideClass}" style="${stripe.trStyle}">
-            <td>${fmtTimeSpot(h.time)}</td>
-            <td><span class="wind-val">${Math.round(h.wind_kn)}</span> <span class="gust-val">↑${Math.round(h.gusts_kn)}</span> kts</td>
-            <td class="forecast-ratio-cell"><span class="gust-val">${stripe.windGustRatioLabel}</span></td>
-            <td>${bearing(h.dir_deg)}</td>
-            <td>${h.temp_c != null ? Math.round(h.temp_c) + '°C' : '—'}</td>
-            <td>${wmoIcon(h.wmo)}</td>
-            ${gearCell(h.wind_kn)}
-          </tr>`;
-        }
-
-        const table = `
-          <table id="forecast-table">
-            <thead><tr>
-              <th>Time</th><th>Wind / Gusts</th><th class="forecast-col-ratio">Wind/Gust</th><th>Dir</th><th>Temp</th><th>Sky</th><th>Gear</th>
-            </tr></thead>
-            <tbody>${rows}</tbody>
-          </table>`;
-
-        el.innerHTML = table;
-      } catch (e) {
-        el.innerHTML = '<span style="color:var(--pico-muted-color)">Could not load forecast</span>';
-        console.error(e);
-      }
+    let html = '';
+    for (const hs of byDay.values()) {
+      const lo = Math.min(...hs.map((h) => h.wind_kn));
+      const peak = hs.reduce((a, b) => (b.wind_kn > a.wind_kn ? b : a));
+      const hi = peak.wind_kn;
+      const gust = Math.max(...hs.map((h) => h.gusts_kn));
+      const onHours = hs.filter((h) => h.rideable).length;
+      const left = Math.min(lo, TRACK_MAX_KN) / TRACK_MAX_KN * 100;
+      const width = Math.max(3, (Math.min(hi, TRACK_MAX_KN) - Math.min(lo, TRACK_MAX_KN)) / TRACK_MAX_KN * 100);
+      const bp = width >= 100 ? 0 : left / (100 - width) * 100;
+      const chips = gearChips(hi);
+      html += `<div class="day-row">
+        <span class="d display">${weekdaySpot(peak.time)}<small>${dateSpot(peak.time)}</small></span>
+        <span>${wmoIcon(peak.wmo)}</span>
+        <span class="lo">${Math.round(lo)}</span>
+        <div class="track" title="${Math.round(lo)}–${Math.round(hi)} kts, gusts to ${Math.round(gust)}">
+          <div class="fill" style="left:${left}%;width:${width}%;--bs:${10000 / width}%;--bp:${bp}%"></div>
+          <div class="gust" style="left:${Math.min(98, gust / TRACK_MAX_KN * 100)}%"></div>
+        </div>
+        <span class="hi">${Math.round(hi)} <small>↑${Math.round(gust)}</small></span>
+        <span class="day-gear">${hi >= 10
+          ? `${onHours ? `<span class="on-badge">${onHours}h ON</span>` : ''}Peak ${shortHour(peak.time)} · ${bearing(peak.dir_deg)} ${chips}`
+          : 'Too light to ride'}</span>
+      </div>`;
     }
+    el.innerHTML = html;
+  }
 
-    // ── Pull + analyze (admin only) ───────────────────────────────────────────
+  function renderWindTile(now) {
+    const el = document.querySelector('#t-wind .body');
+    if (!now) { el.innerHTML = '<span class="msg">—</span>'; return; }
+    const pts = ['N', 'E', 'S', 'W'].map((l, i) =>
+      `<text x="${60 + 41 * Math.sin(i * Math.PI / 2)}" y="${66 - 41 * Math.cos(i * Math.PI / 2)}" text-anchor="middle" font-family="Bangers, sans-serif" font-size="16" fill="currentColor">${l}</text>`).join('');
+    el.innerHTML = `
+      <div class="compass"><svg viewBox="0 0 120 120" role="img" aria-label="Wind from ${now.dirLabel}">
+        <circle cx="60" cy="60" r="53" fill="none" stroke="currentColor" stroke-width="3"/>
+        ${pts}
+        <g transform="rotate(${now.dir + 180} 60 60)"><path d="M60 24 L70 66 L60 58 L50 66 Z" fill="var(--pink)" stroke="var(--ink)" stroke-width="3" stroke-linejoin="round"/></g>
+        <text x="60" y="90" text-anchor="middle" font-family="Bangers, sans-serif" font-size="18" fill="currentColor">${Math.round(now.wind)} KTS</text>
+      </svg></div>
+      <div class="sub">From the ${now.dirLabel}${now.avg != null ? ` · avg ${Math.round(now.avg)} kts` : ''}${now.live ? '' : ' · forecast'}</div>`;
+  }
 
-    const userParam = new URLSearchParams(location.search).get('user') ?? '';
-    if (IS_ADMIN) document.getElementById('pull-btn').style.display = '';
+  function renderGustTile(best) {
+    const el = document.querySelector('#t-gust .body');
+    const ref = best;
+    const r = ref ? gustRatio(ref.gusts_kn, ref.wind_kn) : null;
+    if (r == null) { el.innerHTML = '<div class="val display">—</div><div class="sub">Not enough wind to tell.</div>'; return; }
+    el.innerHTML = `
+      <div class="val display">×${r.toFixed(1)}</div>
+      <div class="meter"><i style="left:${Math.min(100, Math.max(0, (r - 1) / 1.5 * 100))}%"></i></div>
+      <div class="sub">${gustWord(r)} at the ${weekdaySpot(ref.time)} ${shortHour(ref.time)} peak (${Math.round(ref.wind_kn)}↑${Math.round(ref.gusts_kn)})</div>`;
+  }
 
-    document.getElementById('update-info').addEventListener('click', async (e) => {
-      const btn = e.target.closest('.status-analyze-btn');
-      if (!btn || btn.disabled) return;
-      e.preventDefault();
-      const q = new URLSearchParams(location.search).get('user') ?? '';
-      if (!q) {
-        alert('Add ?user=… (same as user.name in config) to run analysis.');
-        return;
-      }
-      btn.disabled = true;
-      const prev = btn.textContent;
-      btn.textContent = '…';
-      try {
-        const res = await fetch(`/analyze?user=${encodeURIComponent(q)}`, { method: 'POST', cache: 'no-store' });
-        const d = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(d.error || res.statusText);
-        await loadForecast();
-        await loadStatus();
-      } catch (err) {
-        console.error(err);
-        alert(err.message || String(err));
-      } finally {
-        btn.disabled = false;
-        btn.textContent = prev;
-      }
-    });
+  function renderGearTile(best) {
+    const el = document.querySelector('#t-gear .body');
+    const win = state.status?.last_analysis?.next_window;
+    const kn = win?.avg_kn ?? best?.wind_kn;
+    const when = win?.start ?? best?.time;
+    const g = kn != null ? gearFor(kn) : null;
+    if (!kitegear) { el.innerHTML = '<div class="sub">Gear sizing loading…</div>'; return; }
+    if (!g || (!(g.kite > 0) && !(g.wing > 0))) { el.innerHTML = '<div class="val display">Rest day</div><div class="sub">Too light for any gear.</div>'; return; }
+    el.innerHTML = `
+      ${g.kite > 0 ? `<div class="gear-line"><img src="/kite-icon.png" alt=""><span class="display">${g.kite} m</span> kite</div>` : ''}
+      ${g.wing > 0 ? `<div class="gear-line"><img src="/wing-icon.svg" alt=""><span class="display">${g.wing} m</span> wing</div>` : ''}
+      <div class="sub">For ${weekdaySpot(when)} ${shortHour(when)} · ${Math.round(kn)} kts</div>`;
+  }
 
-    document.getElementById('pull-btn').addEventListener('click', async () => {
-      const btn = document.getElementById('pull-btn');
-      const el  = document.getElementById('forecast-info');
-      btn.setAttribute('aria-busy', 'true');
-      btn.disabled = true;
-      btn.textContent = 'Pulling…';
-      try {
-        const pullUrl = userParam ? `/pull?user=${encodeURIComponent(userParam)}` : '/pull';
-        const res = await fetch(pullUrl, { method: 'POST', cache: 'no-store' });
-        const d = await res.json();
-        if (d.ok) {
-          await loadForecast();
-          await loadStatus();
-        } else {
-          el.innerHTML = `<mark>Pull failed: ${d.error}</mark>`;
-        }
-      } catch (e) {
-        el.innerHTML = `<mark>${e.message}</mark>`;
-      } finally {
-        btn.removeAttribute('aria-busy');
-        btn.disabled = false;
-        btn.textContent = 'Pull now';
-      }
-    });
+  function kv(label, value) {
+    return `<div class="kv"><span>${label}</span><span>${value}</span></div>`;
+  }
 
-    loadStatus();
-    (async () => {
-      if (LIVE_ENABLED) await loadLive();
-      loadForecast();
-    })();
-    setInterval(loadStatus, 60_000);
-    setInterval(async () => {
-      if (LIVE_ENABLED) await loadLive();
-      loadForecast();
-    }, 300_000);
-  </script>
+  function renderStatus() {
+    const el = $('update-info');
+    const d = state.status;
+    if (!d) { el.innerHTML = '<span class="msg">Could not load status</span>'; return; }
+    const f = state.forecast;
+    let html = '';
+    if (f && !f.error) {
+      html += kv('Weather forecast', `${reltime(f.fetched_at)} · ${f.source}`);
+      html += kv('Forecast range', `${fmtDay(f.valid_from)} – ${fmtDay(f.valid_to)}`);
+    } else if (d.last_forecast_fetch) {
+      const lf = d.last_forecast_fetch;
+      html += kv('Forecast', `${reltime(lf.at)} ${lf.ok ? '✓' : '✗'}`);
+    }
+    const stationUrl = 'https://wwwext.arlut.utexas.edu/weather/lake/';
+    if (LIVE_ENABLED) {
+      html += kv('Live', state.live?.scraped_at ? `${reltime(state.live.scraped_at)} · <a href="${stationUrl}" rel="noopener noreferrer" target="_blank">ARL:UT Lake Travis</a>` : '—');
+    }
+    if (d.last_analysis) {
+      const a = d.last_analysis;
+      const analyzeBtn = IS_ADMIN
+        ? '<button type="button" class="btn small plain status-analyze-btn" title="Re-run rideable-window analysis on the latest forecast">Run</button>'
+        : '';
+      html += kv('Last analysis', `${reltime(a.at)}${analyzeBtn}`);
+      html += kv('Rideable windows', String(a.windows_found));
+    }
+    if (d.last_notification_sent) html += kv('Last alert', reltime(d.last_notification_sent.at));
+    html += kv('Subscribers', String(d.subscribers ?? 0));
+    if (d.errors_last_24h > 0) html += kv('Errors (24 h)', `<span class="bad">${d.errors_last_24h}</span>`);
+    el.innerHTML = html;
+  }
+
+  // ── fetch ────────────────────────────────────────────────────────────────
+
+  async function refresh() {
+    const [status, forecast, live] = await Promise.all([
+      fetch('/status', { cache: 'no-store' }).then((r) => r.json()).catch(() => null),
+      fetch('/forecast', { cache: 'no-store' }).then((r) => r.json()).catch(() => ({ error: 'Could not load forecast' })),
+      LIVE_ENABLED ? fetch('/live', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null) : Promise.resolve(null),
+    ]);
+    state.status = status;
+    state.live = live;
+    if (forecast?.error) {
+      state.forecastError = forecast.error;
+      state.forecast = null;
+    } else {
+      state.forecastError = null;
+      state.forecast = forecast;
+    }
+    render();
+    renderStatus();
+  }
+
+  // ── Pull + analyze (admin only) ──────────────────────────────────────────
+
+  const userParam = new URLSearchParams(location.search).get('user') ?? '';
+  if (IS_ADMIN) $('pull-btn').classList.remove('hidden');
+
+  $('update-info').addEventListener('click', async (e) => {
+    const b = e.target.closest('.status-analyze-btn');
+    if (!b || b.disabled) return;
+    e.preventDefault();
+    if (!userParam) {
+      alert('Add ?user=… (same as user.name in config) to run analysis.');
+      return;
+    }
+    b.disabled = true;
+    b.textContent = '…';
+    try {
+      const res = await fetch(`/analyze?user=${encodeURIComponent(userParam)}`, { method: 'POST', cache: 'no-store' });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error || res.statusText);
+      await refresh();
+    } catch (err) {
+      console.error(err);
+      alert(err.message || String(err));
+      b.disabled = false;
+      b.textContent = 'Run';
+    }
+  });
+
+  $('pull-btn').addEventListener('click', async () => {
+    const b = $('pull-btn');
+    b.setAttribute('aria-busy', 'true');
+    b.disabled = true;
+    b.textContent = 'Pulling…';
+    try {
+      const pullUrl = userParam ? `/pull?user=${encodeURIComponent(userParam)}` : '/pull';
+      const res = await fetch(pullUrl, { method: 'POST', cache: 'no-store' });
+      const d = await res.json();
+      if (d.ok) await refresh();
+      else $('hours').innerHTML = `<span class="msg">Pull failed: ${d.error}</span>`;
+    } catch (e) {
+      $('hours').innerHTML = `<span class="msg">${e.message}</span>`;
+    } finally {
+      b.removeAttribute('aria-busy');
+      b.disabled = false;
+      b.textContent = 'Pull now';
+    }
+  });
+
+  refresh();
+  loadKitegear();
+  setInterval(refresh, 60_000);
+</script>
 </body>
 </html>
