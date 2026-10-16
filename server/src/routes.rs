@@ -94,6 +94,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/logo-180.png", get(serve_logo_180))
         .route("/logo-512.png", get(serve_logo_512))
         .route("/kite-icon.png", get(serve_kite_icon))
+        .route("/fonts/:name", get(serve_font))
         .route("/wing-icon.svg", get(serve_wing_icon))
         .route("/kite-gear.js", get(serve_kitegear_js))
         .route("/kite-gear.wasm", get(serve_kitegear_wasm))
@@ -336,6 +337,30 @@ async fn serve_kite_icon() -> impl IntoResponse {
         }
     }
     (StatusCode::NOT_FOUND, "kite icon not found").into_response()
+}
+
+/// Self-hosted web fonts (Bangers, Nunito; both SIL OFL). Whitelisted names only.
+async fn serve_font(axum::extract::Path(name): axum::extract::Path<String>) -> impl IntoResponse {
+    if !matches!(name.as_str(), "bangers-latin.woff2" | "nunito-latin.woff2") {
+        return (StatusCode::NOT_FOUND, "font not found").into_response();
+    }
+    let manifest_dir = env!("CARGO_MANIFEST_DIR");
+    let candidates = [
+        format!("{}/static/fonts/{}", manifest_dir, name),
+        format!("server/static/fonts/{}", name),
+        format!("static/fonts/{}", name),
+    ];
+    for path in &candidates {
+        if let Ok(data) = std::fs::read(path) {
+            return axum::response::Response::builder()
+                .header(header::CONTENT_TYPE, "font/woff2")
+                .header(header::CACHE_CONTROL, "public, max-age=31536000, immutable")
+                .body(axum::body::Body::from(data))
+                .unwrap()
+                .into_response();
+        }
+    }
+    (StatusCode::NOT_FOUND, "font not found").into_response()
 }
 
 async fn serve_wing_icon() -> impl IntoResponse {
